@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Results — Hairstyle Recommender</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <header>
+    <h1>✂️ Your Results</h1>
+  </header>
+
+  <main id="resultsContainer"></main>
+
+  <div style="text-align:center; margin: 2rem 0;">
+    <a href="/" class="btn-primary" style="text-decoration:none;">← Try Another Photo</a>
+  </div>
+
+  <script>
+    const raw = sessionStorage.getItem("result");
+
+    if (!raw) {
+      document.getElementById("resultsContainer").innerHTML =
+        `<p class="error-msg" style="display:block;text-align:center;">
+           No result found. <a href="/">Go back and upload a photo.</a>
+         </p>`;
+    } else {
+      renderResults(JSON.parse(raw));
+    }
+
+    function renderResults(data) {
+      const container = document.getElementById("resultsContainer");
+      const faceLabel = data.face_shape.charAt(0).toUpperCase() + data.face_shape.slice(1);
+      const genderLabel = data.gender.charAt(0).toUpperCase() + data.gender.slice(1);
+      const rec = data.recommendations;
+
+      // Confidence bars
+      const barsHTML = Object.entries(data.all_scores)
+        .sort((a, b) => b[1] - a[1])
+        .map(([cls, score]) => `
+          <div class="score-row">
+            <span class="score-label">${cls.charAt(0).toUpperCase() + cls.slice(1)}</span>
+            <div class="score-bar-wrap"><div class="score-bar" style="width:${score}%"></div></div>
+            <span class="score-pct">${score.toFixed(1)}%</span>
+          </div>`).join("");
+
+      // Hairstyle cards
+      const cardsHTML = rec.recommended.map(h => `
+        <div class="hair-card">
+          <h3>${h.name}</h3>
+          <p>${h.description}</p>
+          <div class="tip">💡 <em>${h.tip}</em></div>
+        </div>`).join("");
+
+      // Avoid list
+      const avoidHTML = rec.avoid.map(a => `<li>${a}</li>`).join("");
+
+      container.innerHTML = `
+        <div class="result-header">
+          <div class="gender-badge">${data.gender === 'male' ? '♂' : '♀'} ${genderLabel}</div>
+          <div class="face-shape-badge">${faceLabel} Face</div>
+          <p class="confidence-text">Confidence: <strong>${data.confidence.toFixed(1)}%</strong></p>
+          <p class="shape-desc">${rec.description}</p>
+        </div>
+
+        <section class="section">
+          <h2>Confidence Breakdown</h2>
+          <div class="score-grid">${barsHTML}</div>
+        </section>
+
+        <section class="section">
+          <h2>Recommended Hairstyles for
+            <span class="highlight">${genderLabel} · ${faceLabel}</span> Face
+          </h2>
+          <div class="cards-grid">${cardsHTML}</div>
+        </section>
+
+        <section class="section avoid-section">
+          <h2>Styles to Avoid</h2>
+          <ul class="avoid-list">${avoidHTML}</ul>
+        </section>
+      `;
+    }
+  </script>
+</body>
+</html>

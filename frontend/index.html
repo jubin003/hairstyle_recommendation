@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hairstyle Recommender</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <header>
+    <h1>✂️ Hairstyle Recommender</h1>
+    <p>Upload a clear photo of your face to get personalised hairstyle suggestions.</p>
+  </header>
+
+  <main>
+    <div class="upload-card">
+
+      <!-- Image preview -->
+      <div class="preview-area" id="previewArea" onclick="document.getElementById('fileInput').click()">
+        <img id="previewImg" src="" alt="Preview" style="display:none;" />
+        <div class="placeholder" id="placeholder">
+          <span>📷</span>
+          <p>Click or drag & drop your photo here</p>
+          <small>JPG or PNG</small>
+        </div>
+      </div>
+
+      <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" hidden />
+      <button class="btn-secondary" onclick="document.getElementById('fileInput').click()">
+        Choose Photo
+      </button>
+
+      <!-- Gender selector -->
+      <div class="gender-selector">
+        <p>Select your gender:</p>
+        <div class="gender-options">
+          <label class="gender-option" id="label-male">
+            <input type="radio" name="gender" value="male" />
+            <span>♂ Male</span>
+          </label>
+          <label class="gender-option" id="label-female">
+            <input type="radio" name="gender" value="female" />
+            <span>♀ Female</span>
+          </label>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="analyzeBtn" onclick="analyzeImage()" disabled>
+        Analyse My Face Shape
+      </button>
+
+      <div id="loading" class="loading" style="display:none;">
+        <div class="spinner"></div>
+        <p>Analysing your face shape…</p>
+      </div>
+
+      <div id="error" class="error-msg" style="display:none;"></div>
+    </div>
+  </main>
+
+  <script>
+    const fileInput   = document.getElementById("fileInput");
+    const previewImg  = document.getElementById("previewImg");
+    const placeholder = document.getElementById("placeholder");
+    const analyzeBtn  = document.getElementById("analyzeBtn");
+    const loading     = document.getElementById("loading");
+    const errorDiv    = document.getElementById("error");
+
+    let imageSelected = false;
+    let genderSelected = false;
+
+    function checkReady() {
+      analyzeBtn.disabled = !(imageSelected && genderSelected);
+    }
+
+    // Image selection
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      previewImg.src = URL.createObjectURL(file);
+      previewImg.style.display = "block";
+      placeholder.style.display = "none";
+      imageSelected = true;
+      errorDiv.style.display = "none";
+      checkReady();
+    });
+
+    // Gender selection — highlight selected label
+    document.querySelectorAll('input[name="gender"]').forEach(radio => {
+      radio.addEventListener("change", () => {
+        document.querySelectorAll(".gender-option").forEach(l => l.classList.remove("selected"));
+        radio.parentElement.classList.add("selected");
+        genderSelected = true;
+        checkReady();
+      });
+    });
+
+    // Drag and drop
+    const previewArea = document.getElementById("previewArea");
+    previewArea.addEventListener("dragover", e => { e.preventDefault(); previewArea.classList.add("drag-over"); });
+    previewArea.addEventListener("dragleave", () => previewArea.classList.remove("drag-over"));
+    previewArea.addEventListener("drop", e => {
+      e.preventDefault();
+      previewArea.classList.remove("drag-over");
+      const file = e.dataTransfer.files[0];
+      if (file && (file.type === "image/jpeg" || file.type === "image/png")) {
+        fileInput.files = e.dataTransfer.files;
+        fileInput.dispatchEvent(new Event("change"));
+      }
+    });
+
+    async function analyzeImage() {
+      const file   = fileInput.files[0];
+      const gender = document.querySelector('input[name="gender"]:checked')?.value;
+
+      if (!file || !gender) return;
+
+      loading.style.display  = "flex";
+      analyzeBtn.disabled    = true;
+      errorDiv.style.display = "none";
+
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("gender", gender);
+
+      try {
+        const res  = await fetch("/predict", { method: "POST", body: formData });
+        const data = await res.json();
+
+        if (!res.ok || data.error) throw new Error(data.error || "Something went wrong.");
+
+        sessionStorage.setItem("result", JSON.stringify(data));
+        window.location.href = "result.html";
+
+      } catch (err) {
+        errorDiv.textContent   = `⚠️ ${err.message}`;
+        errorDiv.style.display = "block";
+        analyzeBtn.disabled    = false;
+      } finally {
+        loading.style.display = "none";
+      }
+    }
+  </script>
+
+</body>
+</html>
