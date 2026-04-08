@@ -10,7 +10,7 @@
 
   <header>
     <h1>✂️ Hairstyle Recommender</h1>
-    <p>Upload a clear photo of your face to get personalised hairstyle suggestions.</p>
+    <p>Upload a clear photo and tell us your preferences for personalised suggestions.</p>
   </header>
 
   <main>
@@ -25,29 +25,69 @@
           <small>JPG or PNG</small>
         </div>
       </div>
-
       <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" hidden />
-      <button class="btn-secondary" onclick="document.getElementById('fileInput').click()">
-        Choose Photo
-      </button>
+      <div style="display: flex; gap: 10px; justify-content: center; width: 100%;">
+        <button class="btn-secondary" onclick="document.getElementById('fileInput').click()">Choose Photo</button>
+        <button class="btn-secondary" onclick="startCamera()">Take Photo</button>
+      </div>
 
-      <!-- Gender selector -->
-      <div class="gender-selector">
-        <p>Select your gender:</p>
-        <div class="gender-options">
-          <label class="gender-option" id="label-male">
-            <input type="radio" name="gender" value="male" />
-            <span>♂ Male</span>
-          </label>
-          <label class="gender-option" id="label-female">
-            <input type="radio" name="gender" value="female" />
-            <span>♀ Female</span>
-          </label>
+      <!-- Camera Area -->
+      <div id="cameraArea" style="display:none; width: 100%; max-width: 340px; margin-top: 15px; border: 1px solid #d0d0d8; border-radius: 12px; padding: 10px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+        <video id="cameraVideo" autoplay playsinline style="width: 100%; border-radius: 8px; background: #000;"></video>
+        <div style="display: flex; gap: 10px; margin-top: 10px; justify-content: center;">
+          <button class="btn-primary" onclick="takePhoto()" style="padding: 0.5rem 1.5rem; font-size: 0.9rem;">Snap</button>
+          <button class="btn-secondary" onclick="stopCamera()" style="padding: 0.5rem 1.5rem; font-size: 0.9rem;">Cancel</button>
         </div>
+        <canvas id="cameraCanvas" style="display:none;"></canvas>
+      </div>
+
+      <!-- Preferences -->
+      <div class="prefs-grid">
+
+        <!-- Gender -->
+        <div class="pref-group">
+          <label class="pref-label">Gender</label>
+          <div class="pill-group" id="gender-group">
+            <button class="pill" data-group="gender" data-value="male" onclick="selectPill(this)">♂ Male</button>
+            <button class="pill" data-group="gender" data-value="female" onclick="selectPill(this)">♀ Female</button>
+          </div>
+        </div>
+
+        <!-- Hair type -->
+        <div class="pref-group">
+          <label class="pref-label">Hair Type</label>
+          <div class="pill-group">
+            <button class="pill active" data-group="hair_type" data-value="any"      onclick="selectPill(this)">Any</button>
+            <button class="pill"        data-group="hair_type" data-value="straight" onclick="selectPill(this)">Straight</button>
+            <button class="pill"        data-group="hair_type" data-value="wavy"     onclick="selectPill(this)">Wavy</button>
+            <button class="pill"        data-group="hair_type" data-value="curly"    onclick="selectPill(this)">Curly</button>
+          </div>
+        </div>
+
+        <!-- Length preference -->
+        <div class="pref-group">
+          <label class="pref-label">Preferred Length</label>
+          <div class="pill-group">
+            <button class="pill"        data-group="length_pref" data-value="short"  onclick="selectPill(this)">Short</button>
+            <button class="pill active" data-group="length_pref" data-value="medium" onclick="selectPill(this)">Medium</button>
+            <button class="pill"        data-group="length_pref" data-value="long"   onclick="selectPill(this)">Long</button>
+          </div>
+        </div>
+
+        <!-- Maintenance -->
+        <div class="pref-group">
+          <label class="pref-label">Maintenance Level</label>
+          <div class="pill-group">
+            <button class="pill active" data-group="maintenance" data-value="low"    onclick="selectPill(this)">Low</button>
+            <button class="pill"        data-group="maintenance" data-value="medium" onclick="selectPill(this)">Medium</button>
+            <button class="pill"        data-group="maintenance" data-value="high"   onclick="selectPill(this)">High</button>
+          </div>
+        </div>
+
       </div>
 
       <button class="btn-primary" id="analyzeBtn" onclick="analyzeImage()" disabled>
-        Analyse My Face Shape
+        Get My Recommendations
       </button>
 
       <div id="loading" class="loading" style="display:none;">
@@ -60,15 +100,31 @@
   </main>
 
   <script>
-    const fileInput   = document.getElementById("fileInput");
-    const previewImg  = document.getElementById("previewImg");
-    const placeholder = document.getElementById("placeholder");
-    const analyzeBtn  = document.getElementById("analyzeBtn");
-    const loading     = document.getElementById("loading");
-    const errorDiv    = document.getElementById("error");
+    const fileInput  = document.getElementById("fileInput");
+    const previewImg = document.getElementById("previewImg");
+    const placeholder= document.getElementById("placeholder");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const loading    = document.getElementById("loading");
+    const errorDiv   = document.getElementById("error");
 
-    let imageSelected = false;
+    let imageSelected  = false;
     let genderSelected = false;
+
+    // Pill selection logic
+    function selectPill(btn) {
+      const group = btn.dataset.group;
+      document.querySelectorAll(`[data-group="${group}"]`).forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      if (group === "gender") {
+        genderSelected = true;
+        checkReady();
+      }
+    }
+
+    function getSelected(group) {
+      const active = document.querySelector(`[data-group="${group}"].active`);
+      return active ? active.dataset.value : null;
+    }
 
     function checkReady() {
       analyzeBtn.disabled = !(imageSelected && genderSelected);
@@ -86,16 +142,6 @@
       checkReady();
     });
 
-    // Gender selection — highlight selected label
-    document.querySelectorAll('input[name="gender"]').forEach(radio => {
-      radio.addEventListener("change", () => {
-        document.querySelectorAll(".gender-option").forEach(l => l.classList.remove("selected"));
-        radio.parentElement.classList.add("selected");
-        genderSelected = true;
-        checkReady();
-      });
-    });
-
     // Drag and drop
     const previewArea = document.getElementById("previewArea");
     previewArea.addEventListener("dragover", e => { e.preventDefault(); previewArea.classList.add("drag-over"); });
@@ -110,9 +156,59 @@
       }
     });
 
+    // Camera Logic
+    const cameraArea = document.getElementById("cameraArea");
+    const cameraVideo = document.getElementById("cameraVideo");
+    const cameraCanvas = document.getElementById("cameraCanvas");
+    let cameraStream = null;
+
+    async function startCamera() {
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        cameraVideo.srcObject = cameraStream;
+        cameraArea.style.display = "block";
+        analyzeBtn.disabled = true; // wait for snap or cancel
+      } catch (err) {
+        alert("Unable to access camera: " + err.message);
+      }
+    }
+
+    function stopCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      cameraArea.style.display = "none";
+      checkReady();
+    }
+
+    function takePhoto() {
+      if (!cameraStream) return;
+      
+      const width = cameraVideo.videoWidth || 640;
+      const height = cameraVideo.videoHeight || 480;
+      cameraCanvas.width = width;
+      cameraCanvas.height = height;
+      
+      const context = cameraCanvas.getContext("2d");
+      context.drawImage(cameraVideo, 0, 0, width, height);
+      
+      cameraCanvas.toBlob(blob => {
+        const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        fileInput.dispatchEvent(new Event("change"));
+        stopCamera();
+      }, "image/jpeg", 0.9);
+    }
+
     async function analyzeImage() {
-      const file   = fileInput.files[0];
-      const gender = document.querySelector('input[name="gender"]:checked')?.value;
+      const file = fileInput.files[0];
+      const gender      = getSelected("gender");
+      const hair_type   = getSelected("hair_type")   || "any";
+      const length_pref = getSelected("length_pref") || "medium";
+      const maintenance = getSelected("maintenance") || "low";
 
       if (!file || !gender) return;
 
@@ -121,18 +217,18 @@
       errorDiv.style.display = "none";
 
       const formData = new FormData();
-      formData.append("image", file);
-      formData.append("gender", gender);
+      formData.append("image",       file);
+      formData.append("gender",      gender);
+      formData.append("hair_type",   hair_type);
+      formData.append("length_pref", length_pref);
+      formData.append("maintenance", maintenance);
 
       try {
         const res  = await fetch("/predict", { method: "POST", body: formData });
         const data = await res.json();
-
         if (!res.ok || data.error) throw new Error(data.error || "Something went wrong.");
-
         sessionStorage.setItem("result", JSON.stringify(data));
         window.location.href = "result.html";
-
       } catch (err) {
         errorDiv.textContent   = `⚠️ ${err.message}`;
         errorDiv.style.display = "block";
@@ -142,6 +238,5 @@
       }
     }
   </script>
-
 </body>
 </html>

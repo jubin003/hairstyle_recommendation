@@ -14,42 +14,58 @@
 
   <main id="resultsContainer"></main>
 
-  <div style="text-align:center; margin: 2rem 0;">
+  <div style="text-align:center; margin:2rem 0;">
     <a href="/" class="btn-primary" style="text-decoration:none;">← Try Another Photo</a>
   </div>
 
   <script>
     const raw = sessionStorage.getItem("result");
-
     if (!raw) {
       document.getElementById("resultsContainer").innerHTML =
         `<p class="error-msg" style="display:block;text-align:center;">
-           No result found. <a href="/">Go back and upload a photo.</a>
-         </p>`;
+           No result found. <a href="/">Go back and upload a photo.</a></p>`;
     } else {
       renderResults(JSON.parse(raw));
     }
 
+    function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
     function renderResults(data) {
-      const container = document.getElementById("resultsContainer");
-      const faceLabel = data.face_shape.charAt(0).toUpperCase() + data.face_shape.slice(1);
-      const genderLabel = data.gender.charAt(0).toUpperCase() + data.gender.slice(1);
-      const rec = data.recommendations;
+      const container  = document.getElementById("resultsContainer");
+      const faceLabel  = cap(data.face_shape);
+      const genderLabel= cap(data.gender);
+      const rec        = data.recommendations;
+      const prefs      = data.preferences;
 
       // Confidence bars
       const barsHTML = Object.entries(data.all_scores)
         .sort((a, b) => b[1] - a[1])
         .map(([cls, score]) => `
           <div class="score-row">
-            <span class="score-label">${cls.charAt(0).toUpperCase() + cls.slice(1)}</span>
+            <span class="score-label">${cap(cls)}</span>
             <div class="score-bar-wrap"><div class="score-bar" style="width:${score}%"></div></div>
             <span class="score-pct">${score.toFixed(1)}%</span>
           </div>`).join("");
 
-      // Hairstyle cards
+      // Preferences summary
+      const prefsHTML = `
+        <div class="prefs-summary">
+          <span class="pref-tag">${data.gender === 'male' ? '♂' : '♀'} ${genderLabel}</span>
+          <span class="pref-tag">💇 ${cap(prefs.hair_type)} hair</span>
+          <span class="pref-tag">📏 ${cap(prefs.length_pref)} length</span>
+          <span class="pref-tag">🔧 ${cap(prefs.maintenance)} maintenance</span>
+        </div>`;
+
+      // Hairstyle cards with match score ring
       const cardsHTML = rec.recommended.map(h => `
         <div class="hair-card">
-          <h3>${h.name}</h3>
+          <div class="card-top">
+            <div class="match-ring ${matchClass(h.match_score)}">
+              <span>${h.match_score}%</span>
+              <small>match</small>
+            </div>
+            <h3>${h.name}</h3>
+          </div>
           <p>${h.description}</p>
           <div class="tip">💡 <em>${h.tip}</em></div>
         </div>`).join("");
@@ -59,29 +75,36 @@
 
       container.innerHTML = `
         <div class="result-header">
-          <div class="gender-badge">${data.gender === 'male' ? '♂' : '♀'} ${genderLabel}</div>
           <div class="face-shape-badge">${faceLabel} Face</div>
-          <p class="confidence-text">Confidence: <strong>${data.confidence.toFixed(1)}%</strong></p>
+          <p class="confidence-text">Detection confidence: <strong>${data.confidence.toFixed(1)}%</strong></p>
           <p class="shape-desc">${rec.description}</p>
+          ${prefsHTML}
         </div>
 
         <section class="section">
-          <h2>Confidence Breakdown</h2>
+          <h2>Face Shape Confidence</h2>
           <div class="score-grid">${barsHTML}</div>
         </section>
 
         <section class="section">
-          <h2>Recommended Hairstyles for
-            <span class="highlight">${genderLabel} · ${faceLabel}</span> Face
+          <h2>Top Hairstyle Matches for
+            <span class="highlight">${genderLabel} · ${faceLabel}</span>
           </h2>
+          <p class="algo-note">Ranked by cosine similarity across face shape, hair type, length & maintenance preferences.</p>
           <div class="cards-grid">${cardsHTML}</div>
         </section>
 
         <section class="section avoid-section">
-          <h2>Styles to Avoid</h2>
+          <h2>Least Recommended Styles</h2>
           <ul class="avoid-list">${avoidHTML}</ul>
         </section>
       `;
+    }
+
+    function matchClass(score) {
+      if (score >= 85) return "match-high";
+      if (score >= 70) return "match-mid";
+      return "match-low";
     }
   </script>
 </body>
