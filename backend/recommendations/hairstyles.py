@@ -1,140 +1,294 @@
 """
-Rule-based mapping: face shape + gender → hairstyle recommendations.
+Content-Based Filtering using Cosine Similarity for hairstyle recommendations.
+
+Each hairstyle is encoded as a feature vector:
+[oval, round, square, heart, oblong, male, female, length(0-2), maintenance(0-2), hair_type(0-3)]
+
+Scores range 0.0 - 1.0 (how suitable the hairstyle is for that feature)
+Length:      0=short, 1=medium, 2=long
+Maintenance: 0=low,   1=medium, 2=high
+Hair type:   0=any,   1=straight, 2=wavy, 3=curly
 """
 
-HAIRSTYLE_RECOMMENDATIONS = {
-    "heart": {
-        "description": "Heart-shaped faces have a wider forehead and narrow chin.",
-        "male": {
-            "recommended": [
-                {"name": "Textured Quiff", "description": "Adds volume at the front while keeping sides short, balancing the wide forehead.", "tip": "Use a matte pomade for a natural finish."},
-                {"name": "Side Part Undercut", "description": "Clean sides draw attention away from the broad forehead.", "tip": "Keep the part deep and defined."},
-                {"name": "Messy Fringe", "description": "Forward-swept fringe softens the forehead width.", "tip": "Avoid a perfectly straight fringe — keep it casual."},
-                {"name": "Short Back and Sides with Length on Top", "description": "Volume on top balances the narrow chin.", "tip": "Ask for a taper fade on the sides."},
-            ],
-            "avoid": ["Slicked-back styles that expose the full forehead", "Very short buzz cuts"]
-        },
-        "female": {
-            "recommended": [
-                {"name": "Side-Swept Bangs", "description": "Softens the wide forehead and draws attention downward.", "tip": "Keep bangs long and swept to one side."},
-                {"name": "Chin-Length Bob", "description": "Adds width at the jaw to balance the narrow chin.", "tip": "Works best slightly fuller at the ends."},
-                {"name": "Wavy Lob", "description": "Loose waves at the chin add volume to the lower face.", "tip": "Avoid adding volume at the crown."},
-                {"name": "Low Ponytail", "description": "Keeps the top flat and frames the chin beautifully.", "tip": "Let a few face-framing strands fall loose."},
-            ],
-            "avoid": ["Short pixie cuts with volume at crown", "High top buns", "Centre-parted sleek styles"]
-        }
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+
+# ─── Feature index constants ───────────────────────────────────────
+FACE_OVAL    = 0
+FACE_ROUND   = 1
+FACE_SQUARE  = 2
+FACE_HEART   = 3
+FACE_OBLONG  = 4
+GENDER_MALE  = 5
+GENDER_FEM   = 6
+LENGTH       = 7   # 0=short 1=medium 2=long
+MAINTENANCE  = 8   # 0=low   1=medium 2=high
+HAIR_TYPE    = 9   # 0=any   1=straight 2=wavy 3=curly
+
+# ─── Hairstyle database ────────────────────────────────────────────
+# Format: [oval, round, square, heart, oblong, male, female, length, maintenance, hair_type]
+HAIRSTYLES = {
+    # ── FEMALE STYLES ──────────────────────────────────────────────
+    "Curtain Bangs": {
+        "vector":      [0.9, 0.5, 0.7, 0.8, 0.95, 0.3, 0.95, 1, 1, 2],
+        "description": "Soft parted bangs that frame the face and suit most face shapes.",
+        "tip":         "Part in the middle and blow-dry outward for best results.",
+        "gender":      "female"
+    },
+    "Wavy Lob": {
+        "vector":      [0.9, 0.6, 0.5, 0.95, 0.5, 0.1, 0.95, 1, 1, 2],
+        "description": "A long bob with soft waves — adds volume to the lower face.",
+        "tip":         "Use a large barrel curling iron for soft natural waves.",
+        "gender":      "female"
+    },
+    "Pixie Cut": {
+        "vector":      [0.95, 0.4, 0.6, 0.5, 0.5, 0.1, 0.9, 0, 0, 1],
+        "description": "Short and chic — highlights balanced facial features.",
+        "tip":         "Works best with fine to medium hair texture.",
+        "gender":      "female"
+    },
+    "Blunt Bob": {
+        "vector":      [0.8, 0.4, 0.4, 0.7, 0.9, 0.1, 0.9, 1, 1, 1],
+        "description": "Clean horizontal lines add width and shorten face length.",
+        "tip":         "Keep ends blunt and straight for maximum effect.",
+        "gender":      "female"
+    },
+    "Long Layers": {
+        "vector":      [0.9, 0.9, 0.7, 0.6, 0.5, 0.1, 0.95, 2, 1, 0],
+        "description": "Layers starting below the chin elongate and slim the face.",
+        "tip":         "Ask for face-framing layers for extra effect.",
+        "gender":      "female"
+    },
+    "Side-Swept Bangs": {
+        "vector":      [0.85, 0.7, 0.8, 0.9, 0.6, 0.1, 0.95, 1, 1, 0],
+        "description": "Diagonal bangs soften strong features and wide foreheads.",
+        "tip":         "Keep bangs long and angled — never blunt.",
+        "gender":      "female"
+    },
+    "High Top Knot": {
+        "vector":      [0.9, 0.9, 0.5, 0.5, 0.6, 0.1, 0.9, 2, 0, 0],
+        "description": "Adds height making the face appear longer and slimmer.",
+        "tip":         "Keep the sides sleek and flat for best effect.",
+        "gender":      "female"
+    },
+    "Beachy Waves": {
+        "vector":      [0.95, 0.6, 0.8, 0.7, 0.6, 0.1, 0.9, 2, 1, 2],
+        "description": "Effortless loose waves that suit balanced facial features.",
+        "tip":         "Salt spray gives a natural, textured look.",
+        "gender":      "female"
+    },
+    "Soft Curls": {
+        "vector":      [0.85, 0.5, 0.9, 0.7, 0.6, 0.1, 0.9, 1, 2, 3],
+        "description": "Soft curls reduce angular features and add femininity.",
+        "tip":         "Use a diffuser to enhance natural curl pattern.",
+        "gender":      "female"
+    },
+    "Sleek Straight": {
+        "vector":      [0.95, 0.4, 0.5, 0.6, 0.4, 0.1, 0.85, 2, 1, 1],
+        "description": "Clean straight hair showcases balanced proportions.",
+        "tip":         "A centre part works especially well for oval faces.",
+        "gender":      "female"
+    },
+    "Voluminous Waves": {
+        "vector":      [0.8, 0.5, 0.6, 0.6, 0.9, 0.1, 0.9, 2, 2, 2],
+        "description": "Wide waves add volume on the sides, reducing face length.",
+        "tip":         "Use a large barrel and brush waves out for maximum volume.",
+        "gender":      "female"
+    },
+    "Low Ponytail": {
+        "vector":      [0.85, 0.6, 0.6, 0.9, 0.6, 0.1, 0.9, 2, 0, 0],
+        "description": "A low loose ponytail keeps the top flat and frames the chin.",
+        "tip":         "Let a few face-framing strands fall loose.",
+        "gender":      "female"
     },
 
-    "oblong": {
-        "description": "Oblong faces are longer than wide with a similar forehead and jaw width.",
-        "male": {
-            "recommended": [
-                {"name": "Textured Crop", "description": "Horizontal fringe breaks up the face length.", "tip": "Ask for a French crop or textured fringe."},
-                {"name": "Quiff with Volume on Sides", "description": "Width on the sides shortens the perceived face length.", "tip": "Use a round brush when blow-drying for extra volume."},
-                {"name": "Curtain Bangs", "description": "Parted fringe adds width and shortens the face visually.", "tip": "Works great with medium-length hair."},
-                {"name": "Buzz Cut with Beard", "description": "A full beard adds width to the jaw, balancing the length.", "tip": "Keep the beard well-groomed and shaped."},
-            ],
-            "avoid": ["Long straight styles", "Mohawks or styles with height on top", "Slicked-back looks"]
-        },
-        "female": {
-            "recommended": [
-                {"name": "Curtain Bangs", "description": "Shortens the face visually by breaking up the length.", "tip": "Part in the middle for the most flattering effect."},
-                {"name": "Medium Layered Cut", "description": "Adds width and fullness on the sides.", "tip": "Ask for layers from the cheekbone down."},
-                {"name": "Blunt Bob", "description": "Horizontal lines add perceived width and shorten length.", "tip": "Keep it at or just below the jaw."},
-                {"name": "Voluminous Waves", "description": "Width-adding style that counteracts the long face shape.", "tip": "Use a large barrel curling iron for soft, wide waves."},
-            ],
-            "avoid": ["Very long straight hair", "Sleek centre-parted styles", "High ponytails"]
-        }
+    # ── MALE STYLES ────────────────────────────────────────────────
+    "Textured Quiff": {
+        "vector":      [0.9, 0.7, 0.6, 0.9, 0.7, 0.95, 0.1, 0, 1, 0],
+        "description": "Adds volume at the front while keeping sides short.",
+        "tip":         "Use matte pomade for a natural finish.",
+        "gender":      "male"
     },
-
-    "oval": {
-        "description": "Oval faces are the most versatile — slightly longer than wide with balanced proportions.",
-        "male": {
-            "recommended": [
-                {"name": "Classic Crew Cut", "description": "Clean, timeless style that shows off balanced features.", "tip": "Any variation works — go for what suits your lifestyle."},
-                {"name": "Slicked Back Undercut", "description": "Highlights symmetry and gives a sharp, polished look.", "tip": "Use a strong hold pomade."},
-                {"name": "Textured Pompadour", "description": "Adds personality while working with the balanced proportions.", "tip": "Keep sides faded for a modern finish."},
-                {"name": "Modern Quiff", "description": "Versatile and stylish — suits oval perfectly.", "tip": "Works with straight or wavy hair."},
-            ],
-            "avoid": ["Almost nothing — oval is the most versatile shape!"]
-        },
-        "female": {
-            "recommended": [
-                {"name": "Classic Pixie Cut", "description": "Shows off balanced features with minimal length.", "tip": "Any variation works — textured, sleek, or with a side part."},
-                {"name": "Beachy Waves", "description": "Effortless style that suits the balanced oval shape perfectly.", "tip": "Salt spray gives a natural, textured look."},
-                {"name": "High Bun", "description": "Highlights facial symmetry and elongates the neck.", "tip": "Leave face-framing pieces out for a softer look."},
-                {"name": "Sleek Long Hair", "description": "Clean straight hair showcases balanced proportions.", "tip": "A centre part works especially well."},
-            ],
-            "avoid": ["Styles that work against face symmetry — almost anything goes!"]
-        }
+    "Side Part Undercut": {
+        "vector":      [0.9, 0.7, 0.7, 0.9, 0.6, 0.95, 0.1, 0, 1, 1],
+        "description": "Clean sides with a defined part — sharp and versatile.",
+        "tip":         "Keep the part deep and well-defined.",
+        "gender":      "male"
     },
-
-    "round": {
-        "description": "Round faces are as wide as they are long, with soft curves and a rounded jaw.",
-        "male": {
-            "recommended": [
-                {"name": "High Fade with Height on Top", "description": "Height adds length, tight sides slim the face.", "tip": "A high skin fade works best."},
-                {"name": "Pompadour", "description": "Vertical volume elongates the face significantly.", "tip": "Keep sides very short to contrast the top volume."},
-                {"name": "Side Part with Slick", "description": "Asymmetry breaks up the roundness.", "tip": "A deep side part is especially effective."},
-                {"name": "Angular Fringe", "description": "Angled styling creates the illusion of sharper features.", "tip": "Avoid a perfectly round or bowl-shaped fringe."},
-            ],
-            "avoid": ["Buzz cuts with no fade", "Rounded bowl cuts", "Voluminous styles on the sides"]
-        },
-        "female": {
-            "recommended": [
-                {"name": "Long Layers", "description": "Elongates the face and draws the eye up and down.", "tip": "Ask for layers starting below the chin."},
-                {"name": "High Top Knot", "description": "Adds height to the head, making the face appear longer.", "tip": "Keep sides sleek and flat."},
-                {"name": "Side Part with Volume", "description": "Asymmetry breaks up the roundness and slims the face.", "tip": "A deep side part is especially effective."},
-                {"name": "Straight Lob with Centre Part", "description": "Lengthens the face and creates clean vertical lines.", "tip": "Avoid flipping ends outward — keep them straight."},
-            ],
-            "avoid": ["Blunt bobs at jaw level", "Short styles with volume on sides", "Curly voluminous styles"]
-        }
+    "High Fade with Height": {
+        "vector":      [0.85, 0.95, 0.7, 0.6, 0.5, 0.95, 0.1, 0, 1, 0],
+        "description": "Tight sides with height on top elongates round faces.",
+        "tip":         "A high skin fade creates the best contrast.",
+        "gender":      "male"
     },
-
-    "square": {
-        "description": "Square faces have a strong jaw, wide forehead, and straight sides.",
-        "male": {
-            "recommended": [
-                {"name": "Messy Textured Top", "description": "Soft texture reduces the angular look of a square jaw.", "tip": "Avoid overly structured or hard styles."},
-                {"name": "Long Fringe / Curtains", "description": "Softens the forehead and draws attention to the centre.", "tip": "Works great with medium length hair."},
-                {"name": "Taper Fade with Waves", "description": "Curved natural waves soften the strong jawline.", "tip": "Let waves flow naturally — don't force structure."},
-                {"name": "Longer Hair with Layers", "description": "Length past the jaw softens its angles.", "tip": "Go for at least collar-length to see the effect."},
-            ],
-            "avoid": ["Very short military cuts", "Hard side parts", "Blunt fringes that emphasise the forehead width"]
-        },
-        "female": {
-            "recommended": [
-                {"name": "Soft Curls or Waves", "description": "Curves soften the angular jawline.", "tip": "Medium to long length works best."},
-                {"name": "Side-Swept Bangs", "description": "Diagonal lines soften the square forehead.", "tip": "Keep bangs long and angled, not blunt."},
-                {"name": "Long Layered Cut", "description": "Draws attention down and away from the jaw corners.", "tip": "Face-framing layers are key."},
-                {"name": "Textured Pixie", "description": "Soft texture and side-swept styling reduce the angular look.", "tip": "Avoid blunt, structured pixie cuts."},
-            ],
-            "avoid": ["Blunt bobs that hit at jaw", "Straight-across fringes", "Very sleek straight styles"]
-        }
-    }
+    "Pompadour": {
+        "vector":      [0.9, 0.9, 0.6, 0.7, 0.5, 0.95, 0.1, 0, 2, 1],
+        "description": "Vertical volume elongates the face significantly.",
+        "tip":         "Keep sides very short to contrast the top volume.",
+        "gender":      "male"
+    },
+    "Crew Cut": {
+        "vector":      [0.95, 0.6, 0.7, 0.7, 0.7, 0.95, 0.1, 0, 0, 0],
+        "description": "Clean timeless style that suits balanced features.",
+        "tip":         "Works for all hair types — very low maintenance.",
+        "gender":      "male"
+    },
+    "Buzz Cut": {
+        "vector":      [0.85, 0.5, 0.6, 0.5, 0.7, 0.95, 0.1, 0, 0, 0],
+        "description": "Ultra short — clean and low maintenance.",
+        "tip":         "Works best with a well-defined jawline.",
+        "gender":      "male"
+    },
+    "Textured Crop": {
+        "vector":      [0.85, 0.6, 0.7, 0.7, 0.9, 0.95, 0.1, 0, 1, 0],
+        "description": "Horizontal fringe breaks up face length visually.",
+        "tip":         "Ask for a French crop with a textured finish.",
+        "gender":      "male"
+    },
+    "Slicked Back Undercut": {
+        "vector":      [0.95, 0.5, 0.6, 0.6, 0.5, 0.95, 0.1, 1, 2, 1],
+        "description": "Highlights facial symmetry with a sharp polished look.",
+        "tip":         "Use strong hold pomade and comb straight back.",
+        "gender":      "male"
+    },
+    "Messy Fringe": {
+        "vector":      [0.85, 0.6, 0.7, 0.9, 0.7, 0.9, 0.1, 1, 1, 0],
+        "description": "Forward-swept fringe softens the forehead width.",
+        "tip":         "Avoid a perfectly straight fringe — keep it casual.",
+        "gender":      "male"
+    },
+    "Long Hair with Layers": {
+        "vector":      [0.85, 0.6, 0.9, 0.7, 0.5, 0.9, 0.1, 2, 1, 0],
+        "description": "Length past the jaw softens angular features.",
+        "tip":         "Go for at least collar-length to see the effect.",
+        "gender":      "male"
+    },
+    "Curtain Hair (Male)": {
+        "vector":      [0.85, 0.6, 0.8, 0.8, 0.9, 0.9, 0.1, 1, 1, 2],
+        "description": "Parted middle fringe adds width and softens the face.",
+        "tip":         "Works great with medium length wavy hair.",
+        "gender":      "male"
+    },
+    "Modern Quiff": {
+        "vector":      [0.95, 0.7, 0.6, 0.7, 0.6, 0.95, 0.1, 0, 1, 0],
+        "description": "Versatile stylish quiff that suits oval faces perfectly.",
+        "tip":         "Works with straight or wavy hair.",
+        "gender":      "male"
+    },
 }
 
+# ─── Encoding maps ─────────────────────────────────────────────────
+FACE_SHAPE_IDX = {"oval": 0, "round": 1, "square": 2, "heart": 3, "oblong": 4}
+GENDER_IDX     = {"male": GENDER_MALE, "female": GENDER_FEM}
+LENGTH_MAP     = {"short": 0, "medium": 1, "long": 2}
+MAINTENANCE_MAP= {"low": 0, "medium": 1, "high": 2}
+HAIR_TYPE_MAP  = {"any": 0, "straight": 1, "wavy": 2, "curly": 3}
 
-def get_recommendations(face_shape: str, gender: str) -> dict:
+
+def _build_user_vector(face_shape, gender, hair_type="any",
+                       length_pref="medium", maintenance="low"):
     """
+    Builds a 10-dimensional user preference vector.
+    Face shape confidence is set to 1.0 for the detected shape, 0.0 for others.
+    """
+    vec = [0.0] * 10
+
+    # Face shape — 1.0 for detected shape
+    if face_shape in FACE_SHAPE_IDX:
+        vec[FACE_SHAPE_IDX[face_shape]] = 1.0
+
+    # Gender — 1.0 for selected gender
+    vec[GENDER_IDX[gender]] = 1.0
+
+    # Preferences — normalised to 0-1
+    vec[LENGTH]      = LENGTH_MAP.get(length_pref, 1) / 2.0
+    vec[MAINTENANCE] = MAINTENANCE_MAP.get(maintenance, 0) / 2.0
+    vec[HAIR_TYPE]   = HAIR_TYPE_MAP.get(hair_type, 0) / 3.0
+
+    return vec
+
+
+def get_recommendations(face_shape: str, gender: str,
+                        hair_type: str = "any",
+                        length_pref: str = "medium",
+                        maintenance: str = "low",
+                        top_n: int = 4) -> dict:
+    """
+    Returns top_n hairstyle recommendations ranked by cosine similarity.
+
     Args:
-        face_shape : one of 'heart', 'oblong', 'oval', 'round', 'square'
-        gender     : 'male' or 'female'
+        face_shape  : detected face shape ('oval', 'round', etc.)
+        gender      : 'male' or 'female'
+        hair_type   : 'any', 'straight', 'wavy', 'curly'
+        length_pref : 'short', 'medium', 'long'
+        maintenance : 'low', 'medium', 'high'
+        top_n       : number of recommendations to return
+
     Returns:
-        dict with description, recommended list, and avoid list
+        {
+          "description": "...",
+          "recommended": [
+            {"name": "...", "description": "...", "tip": "...", "match_score": 94.2},
+            ...
+          ],
+          "avoid": [...]
+        }
     """
-    face_shape = face_shape.lower().strip()
-    gender     = gender.lower().strip()
+    face_shape  = face_shape.lower().strip()
+    gender      = gender.lower().strip()
+    hair_type   = hair_type.lower().strip()
+    length_pref = length_pref.lower().strip()
+    maintenance = maintenance.lower().strip()
 
-    if face_shape not in HAIRSTYLE_RECOMMENDATIONS:
+    if face_shape not in FACE_SHAPE_IDX:
         return {"error": f"Unknown face shape: {face_shape}"}
-
     if gender not in ("male", "female"):
-        return {"error": f"Gender must be 'male' or 'female', got: {gender}"}
+        return {"error": f"Gender must be 'male' or 'female'"}
 
-    entry = HAIRSTYLE_RECOMMENDATIONS[face_shape]
+    # Build user vector
+    user_vec = _build_user_vector(face_shape, gender, hair_type, length_pref, maintenance)
+
+    # Filter hairstyles by gender
+    gender_filtered = {
+        name: data for name, data in HAIRSTYLES.items()
+        if data["gender"] == gender
+    }
+
+    # Compute cosine similarity for each hairstyle
+    scores = {}
+    for name, data in gender_filtered.items():
+        h_vec = data["vector"]
+        sim   = cosine_similarity([user_vec], [h_vec])[0][0]
+        scores[name] = round(float(sim) * 100, 1)
+
+    # Sort by score descending
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
+    # Build recommended list (top N)
+    recommended = []
+    for name, score in ranked[:top_n]:
+        entry = HAIRSTYLES[name]
+        recommended.append({
+            "name":        name,
+            "description": entry["description"],
+            "tip":         entry["tip"],
+            "match_score": score
+        })
+
+    # Build avoid list — bottom 3 scoring hairstyles
+    avoid = [name for name, _ in ranked[-3:]]
+
+    # Face shape descriptions
+    descriptions = {
+        "oval":   "Oval faces are the most versatile — slightly longer than wide with balanced proportions.",
+        "round":  "Round faces are as wide as they are long with soft curves and a rounded jaw.",
+        "square": "Square faces have a strong jaw, wide forehead, and straight sides.",
+        "heart":  "Heart-shaped faces have a wider forehead and narrow chin.",
+        "oblong": "Oblong faces are longer than wide with a similar forehead and jaw width."
+    }
+
     return {
-        "description": entry["description"],
-        "recommended": entry[gender]["recommended"],
-        "avoid":       entry[gender]["avoid"]
+        "description": descriptions[face_shape],
+        "recommended": recommended,
+        "avoid":       avoid
     }

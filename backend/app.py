@@ -1,8 +1,9 @@
 import os
 import uuid
+import sys
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import sys
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from model.predict import predict_face_shape
@@ -35,7 +36,6 @@ def predict():
     # Validate image
     if "image" not in request.files:
         return jsonify({"error": "No image file provided."}), 400
-
     file = request.files["image"]
     if file.filename == "":
         return jsonify({"error": "No file selected."}), 400
@@ -45,23 +45,40 @@ def predict():
     # Validate gender
     gender = request.form.get("gender", "").lower().strip()
     if gender not in ("male", "female"):
-        return jsonify({"error": "Please select a gender (male or female)."}), 400
+        return jsonify({"error": "Please select a gender."}), 400
+
+    # Get optional preference inputs (with safe defaults)
+    hair_type   = request.form.get("hair_type",   "any").lower().strip()
+    length_pref = request.form.get("length_pref", "medium").lower().strip()
+    maintenance = request.form.get("maintenance", "low").lower().strip()
 
     # Save temp file
-    ext = file.filename.rsplit(".", 1)[1].lower()
+    ext       = file.filename.rsplit(".", 1)[1].lower()
     temp_path = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4().hex}.{ext}")
     file.save(temp_path)
 
     try:
-        prediction     = predict_face_shape(temp_path)
-        face_shape     = prediction["face_shape"]
-        recommendations = get_recommendations(face_shape, gender)
+        prediction = predict_face_shape(temp_path)
+        face_shape = prediction["face_shape"]
+
+        recommendations = get_recommendations(
+            face_shape  = face_shape,
+            gender      = gender,
+            hair_type   = hair_type,
+            length_pref = length_pref,
+            maintenance = maintenance
+        )
 
         return jsonify({
             "face_shape":      face_shape,
             "confidence":      prediction["confidence"],
             "all_scores":      prediction["all_scores"],
             "gender":          gender,
+            "preferences": {
+                "hair_type":   hair_type,
+                "length_pref": length_pref,
+                "maintenance": maintenance
+            },
             "recommendations": recommendations
         }), 200
 
