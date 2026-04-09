@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Your Results — Hairstyle Recommender</title>
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/modals.css" />
 </head>
 <body>
 
-  <header>
+  <header style="position: relative;">
     <h1>Your Results</h1>
+    <div class="auth-header-container" style="position:absolute; top: 1.5rem; right: 1.5rem; display:flex; align-items:center;"></div>
   </header>
 
   <main id="resultsContainer"></main>
@@ -42,6 +44,7 @@
     } else {
       try {
         renderResults(JSON.parse(raw));
+        setTimeout(highlightFavorites, 100);
       } catch (err) {
         container.innerHTML = `
           <p class="error-msg" style="display:block;text-align:center;">
@@ -143,7 +146,12 @@
                 <span>${h.match_score}%</span>
                 <small>match</small>
               </div>
-              <h3>${h.name}</h3>
+              <div style="display:flex; justify-content:space-between; width:100%; align-items:center; margin-left:1rem;">
+                <h3 style="margin:0;">${h.name}</h3>
+                <button class="btn-heart" data-name="${h.name.replace(/'/g, "&apos;")}" onclick="toggleFavorite(this, '${h.name.replace(/'/g, "\\'")}')">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" class="heart-icon"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                </button>
+              </div>
             </div>
             <p>${h.description}</p>
             <div class="tip"><em>Tip: ${h.tip}</em></div>
@@ -184,6 +192,43 @@
         </section>
       `;
     }
+
+    async function highlightFavorites() {
+      if (typeof loadFavorites !== 'function') return;
+      const favs = await loadFavorites();
+      const favNames = favs.map(f => f.hairstyle_name);
+      document.querySelectorAll('.btn-heart').forEach(btn => {
+         if (favNames.includes(btn.dataset.name)) {
+            btn.classList.add('active');
+         }
+      });
+    }
   </script>
+
+  <!-- Auth Modal -->
+  <div id="authModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+      <h2 id="authTitle">Login</h2>
+      <input type="text" id="authUsername" placeholder="Username" class="auth-input" />
+      <input type="password" id="authPassword" placeholder="Password" class="auth-input" />
+      <p id="authError" style="color:#e74c3c; font-size: 0.8rem; display:none;"></p>
+      <button class="btn-primary" style="width:100%; margin-top:1rem;" onclick="submitAuth()">Submit</button>
+      <p style="text-align:center; margin-top:1rem; font-size:0.85rem;">
+        <a href="#" onclick="toggleAuthMode()" id="authToggleText">Need an account? Sign up</a>
+      </p>
+      <button class="btn-secondary btn-sm" style="width:100%; margin-top:0.5rem;" onclick="closeAuthModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Favorites Modal -->
+  <div id="favModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card" style="max-width: 500px;">
+      <h2>My Saved Styles</h2>
+      <div id="favList" class="fav-list"></div>
+      <button class="btn-secondary" style="width:100%; margin-top:1rem;" onclick="closeFavModal()">Close</button>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
 </body>
 </html>

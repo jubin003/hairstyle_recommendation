@@ -1,0 +1,37 @@
+/* ─── Modal ─────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-card {
+  background: var(--bg-card, #fff); padding: 2rem; border-radius: 16px; width: 90%; max-width: 360px;
+  box-shadow: 0 10px 40px var(--shadow-color, rgba(0,0,0,0.1)); position: relative; border: 1px solid var(--border-light);
+}
+.modal-card h2 { margin-bottom: 1.5rem; color: var(--text-main, #1d1d1f); text-align: center; }
+.auth-input {
+  width: 100%; padding: 0.8rem 1rem; margin-bottom: 1rem;
+  border: 1px solid var(--border-color, #d0d0d8); border-radius: 8px; font-size: 1rem;
+  background: var(--bg-body); color: var(--text-main);
+}
+.auth-input:focus { outline: none; border-color: var(--primary, #6c63ff); }
+.btn-sm { padding: 0.4rem 1rem; font-size: 0.85rem; border-radius: 6px; }
+
+/* ─── Favorites ─────────────────────────────────────────────────── */
+.fav-list {
+  max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem;
+}
+.fav-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.75rem; background: var(--bg-hover, #f8f8fc); border-radius: 8px; border: 1px solid var(--border-light, #e0e0e8);
+}
+.fav-item strong { color: var(--primary, #6c63ff); }
+
+/* Heart Button */
+.btn-heart {
+  background: transparent; border: none; cursor: pointer; padding: 0.2rem;
+}
+.heart-icon { stroke: var(--text-muted, #888); stroke-width: 2; transition: fill 0.2s, stroke 0.2s, transform 0.2s; }
+.btn-heart:hover .heart-icon { transform: scale(1.1); }
+.btn-heart.active .heart-icon { fill: #e74c3c; stroke: #e74c3c; }

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hairstyle Recommender</title>
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/modals.css" />
   <style>
     /* ── Detection Banner ─────────────────────────── */
     #detectionBanner {
@@ -84,9 +85,10 @@
 </head>
 <body>
 
-  <header>
+  <header style="position: relative;">
     <h1>Hairstyle Recommender</h1>
     <p>Upload or snap a photo — we'll detect your hair and suggest the best styles.</p>
+    <div class="auth-header-container" style="position:absolute; top: 1.5rem; right: 1.5rem; display:flex; align-items:center;"></div>
   </header>
 
   <main>
@@ -398,5 +400,31 @@
       }
     }
   </script>
+
+  <!-- Auth Modal -->
+  <div id="authModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+      <h2 id="authTitle">Login</h2>
+      <input type="text" id="authUsername" placeholder="Username" class="auth-input" />
+      <input type="password" id="authPassword" placeholder="Password" class="auth-input" />
+      <p id="authError" style="color:#e74c3c; font-size: 0.8rem; display:none;"></p>
+      <button class="btn-primary" style="width:100%; margin-top:1rem;" onclick="submitAuth()">Submit</button>
+      <p style="text-align:center; margin-top:1rem; font-size:0.85rem;">
+        <a href="#" onclick="toggleAuthMode()" id="authToggleText">Need an account? Sign up</a>
+      </p>
+      <button class="btn-secondary btn-sm" style="width:100%; margin-top:0.5rem;" onclick="closeAuthModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Favorites Modal -->
+  <div id="favModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card" style="max-width: 500px;">
+      <h2>My Saved Styles</h2>
+      <div id="favList" class="fav-list"></div>
+      <button class="btn-secondary" style="width:100%; margin-top:1rem;" onclick="closeFavModal()">Close</button>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
 </body>
 </html>
