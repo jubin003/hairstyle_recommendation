@@ -31,6 +31,29 @@ def static_files(filename):
     return send_from_directory(app.static_folder, filename)
 
 
+@app.route("/analyze-hair", methods=["POST"])
+def analyze_hair_route():
+    """Lightweight endpoint: detect hair length + type only (no CNN, no recommendations)."""
+    from model.mediapipe_analysis import analyze_hair as _analyze_hair
+    if "image" not in request.files:
+        return jsonify({"error": "No image file provided."}), 400
+    file = request.files["image"]
+    if file.filename == "" or not allowed_file(file.filename):
+        return jsonify({"error": "Invalid file."}), 400
+
+    ext       = file.filename.rsplit(".", 1)[1].lower()
+    temp_path = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4().hex}.{ext}")
+    file.save(temp_path)
+    try:
+        result = _analyze_hair(temp_path)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
     # Validate image
@@ -60,7 +83,10 @@ def predict():
     try:
         prediction = predict_face_shape(temp_path)
         face_shape = prediction["face_shape"]
-
+        
+        auto_length = prediction.get("auto_hair_length", "medium")
+        auto_type = prediction.get("auto_hair_type", "any")
+        
         recommendations = get_recommendations(
             face_shape  = face_shape,
             gender      = gender,
@@ -73,6 +99,12 @@ def predict():
             "face_shape":      face_shape,
             "confidence":      prediction["confidence"],
             "all_scores":      prediction["all_scores"],
+            "cnn_scores":      prediction.get("cnn_scores", {}),
+            "geo_scores":      prediction.get("geo_scores", {}),
+            "detected_hair": {
+                "length": auto_length,
+                "type": auto_type
+            },
             "gender":          gender,
             "preferences": {
                 "hair_type":   hair_type,

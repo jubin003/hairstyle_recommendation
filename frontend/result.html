@@ -9,7 +9,7 @@
 <body>
 
   <header>
-    <h1>✂️ Your Results</h1>
+    <h1>Your Results</h1>
   </header>
 
   <main id="resultsContainer"></main>
@@ -19,26 +19,49 @@
   </div>
 
   <script>
-    const raw = sessionStorage.getItem("result");
-    if (!raw) {
-      document.getElementById("resultsContainer").innerHTML =
-        `<p class="error-msg" style="display:block;text-align:center;">
-           No result found. <a href="/">Go back and upload a photo.</a></p>`;
-    } else {
-      renderResults(JSON.parse(raw));
+    /* ── helpers ─────────────────────────────────────────── */
+    function cap(s) {
+      if (!s || typeof s !== "string") return "";
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    function matchClass(score) {
+      if (score >= 85) return "match-high";
+      if (score >= 70) return "match-mid";
+      return "match-low";
     }
 
-    function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+    /* ── boot ────────────────────────────────────────────── */
+    const container = document.getElementById("resultsContainer");
+    const raw = sessionStorage.getItem("result");
 
+    if (!raw) {
+      container.innerHTML = `
+        <p class="error-msg" style="display:block;text-align:center;">
+          No result found. <a href="/">Go back and upload a photo.</a>
+        </p>`;
+    } else {
+      try {
+        renderResults(JSON.parse(raw));
+      } catch (err) {
+        container.innerHTML = `
+          <p class="error-msg" style="display:block;text-align:center;">
+            ⚠️ Error rendering results: ${err.message}<br/>
+            <a href="/">Go back and try again.</a>
+          </p>`;
+        console.error("renderResults crashed:", err);
+      }
+    }
+
+    /* ── main render ─────────────────────────────────────── */
     function renderResults(data) {
-      const container  = document.getElementById("resultsContainer");
-      const faceLabel  = cap(data.face_shape);
-      const genderLabel= cap(data.gender);
-      const rec        = data.recommendations;
-      const prefs      = data.preferences;
+      const faceLabel   = cap(data.face_shape);
+      const genderLabel = cap(data.gender);
+      const rec         = data.recommendations  || {};
+      const prefs       = data.preferences      || {};
+      const allScores   = data.all_scores       || {};
 
-      // Confidence bars
-      const barsHTML = Object.entries(data.all_scores)
+      /* ── Confidence bars ─────────────────────────────── */
+      const barsHTML = Object.entries(allScores)
         .sort((a, b) => b[1] - a[1])
         .map(([cls, score]) => `
           <div class="score-row">
@@ -47,39 +70,100 @@
             <span class="score-pct">${score.toFixed(1)}%</span>
           </div>`).join("");
 
-      // Preferences summary
+      /* ── Preferences tags ───────────────────────────── */
       const prefsHTML = `
         <div class="prefs-summary">
-          <span class="pref-tag">${data.gender === 'male' ? '♂' : '♀'} ${genderLabel}</span>
-          <span class="pref-tag">💇 ${cap(prefs.hair_type)} hair</span>
-          <span class="pref-tag">📏 ${cap(prefs.length_pref)} length</span>
-          <span class="pref-tag">🔧 ${cap(prefs.maintenance)} maintenance</span>
+          <span class="pref-tag">${genderLabel}</span>
+          <span class="pref-tag">${cap(prefs.hair_type)} hair</span>
+          <span class="pref-tag">${cap(prefs.length_pref)} length</span>
+          <span class="pref-tag">${cap(prefs.maintenance)} maintenance</span>
         </div>`;
 
-      // Hairstyle cards with match score ring
-      const cardsHTML = rec.recommended.map(h => `
-        <div class="hair-card">
-          <div class="card-top">
-            <div class="match-ring ${matchClass(h.match_score)}">
-              <span>${h.match_score}%</span>
-              <small>match</small>
+      /* ── AI Hair Detection block ─────────────────────
+           Backend sends: detected_hair = { length: "...", type: "..." }
+           NOTE: key is "type" not "hair_type"
+      ─────────────────────────────────────────────────── */
+      let hairDetectionSection = "";
+      const dh = data.detected_hair;
+      if (dh && dh.length && dh.type) {
+        const lengthIcons = { short: "✂️", medium: "💆", long: "🌊" };
+        const typeIcons   = { straight: "➰", wavy: "〰️", curly: "🌀" };
+        const lengthIcon  = lengthIcons[dh.length]  || "📏";
+        const typeIcon    = typeIcons[dh.type]       || "💇";
+        const lengthLabel = cap(dh.length);
+        const typeLabel   = cap(dh.type);
+        const barWidth    = { short: 33, medium: 66, long: 100 }[dh.length] || 50;
+
+        hairDetectionSection = `
+          <section class="section hair-detect-section">
+            <div class="hair-detect-header">
+              <span class="ai-badge">AI Detected</span>
+              <h2>Your Hair Analysis</h2>
+              <p class="algo-note">Automatically detected from your photo using computer vision &amp; image segmentation.</p>
             </div>
-            <h3>${h.name}</h3>
+            <div class="hair-detect-grid">
+              <div class="hair-detect-card">
+                <div class="hair-detect-info">
+                  <span class="hair-detect-label">Hair Length</span>
+                  <span class="hair-detect-value">${lengthLabel}</span>
+                </div>
+                <div class="hair-detect-bar-wrap">
+                  <div class="hair-detect-bar" style="width:${barWidth}%"></div>
+                </div>
+                <div class="hair-length-scale">
+                  <span class="${dh.length === "short"  ? "active-scale" : ""}">Short</span>
+                  <span class="${dh.length === "medium" ? "active-scale" : ""}">Medium</span>
+                  <span class="${dh.length === "long"   ? "active-scale" : ""}">Long</span>
+                </div>
+              </div>
+              <div class="hair-detect-card">
+                <div class="hair-detect-info">
+                  <span class="hair-detect-label">Hair Type</span>
+                  <span class="hair-detect-value">${typeLabel}</span>
+                </div>
+                <div class="hair-type-pills">
+                  <span class="htype-pill ${dh.type === "straight" ? "htype-active" : ""}">Straight</span>
+                  <span class="htype-pill ${dh.type === "wavy"     ? "htype-active" : ""}">Wavy</span>
+                  <span class="htype-pill ${dh.type === "curly"    ? "htype-active" : ""}">Curly</span>
+                </div>
+              </div>
+            </div>
+            <p class="detect-note">These detected values were used to personalise your recommendations (unless you manually overrode them).</p>
+          </section>`;
+      }
+
+      /* ── Hairstyle recommendation cards ─────────────── */
+      const recommended = Array.isArray(rec.recommended) ? rec.recommended : [];
+      const cardsHTML = recommended.map(h => `
+        <div class="hair-card">
+          <img src="${h.image_url || ''}" alt="${h.name}" class="hair-image" />
+          <div class="card-content">
+            <div class="card-top">
+              <div class="match-ring ${matchClass(h.match_score)}">
+                <span>${h.match_score}%</span>
+                <small>match</small>
+              </div>
+              <h3>${h.name}</h3>
+            </div>
+            <p>${h.description}</p>
+            <div class="tip"><em>Tip: ${h.tip}</em></div>
           </div>
-          <p>${h.description}</p>
-          <div class="tip">💡 <em>${h.tip}</em></div>
         </div>`).join("");
 
-      // Avoid list
-      const avoidHTML = rec.avoid.map(a => `<li>${a}</li>`).join("");
+      /* ── Avoid list ──────────────────────────────────── */
+      const avoid     = Array.isArray(rec.avoid) ? rec.avoid : [];
+      const avoidHTML = avoid.map(a => `<li>${a}</li>`).join("");
 
+      /* ── Inject into DOM ─────────────────────────────── */
       container.innerHTML = `
         <div class="result-header">
           <div class="face-shape-badge">${faceLabel} Face</div>
-          <p class="confidence-text">Detection confidence: <strong>${data.confidence.toFixed(1)}%</strong></p>
-          <p class="shape-desc">${rec.description}</p>
+          <p class="confidence-text">Detection confidence: <strong>${(data.confidence || 0).toFixed(1)}%</strong></p>
+          <p class="shape-desc">${rec.description || ""}</p>
           ${prefsHTML}
         </div>
+
+        ${hairDetectionSection}
 
         <section class="section">
           <h2>Face Shape Confidence</h2>
@@ -90,21 +174,15 @@
           <h2>Top Hairstyle Matches for
             <span class="highlight">${genderLabel} · ${faceLabel}</span>
           </h2>
-          <p class="algo-note">Ranked by cosine similarity across face shape, hair type, length & maintenance preferences.</p>
-          <div class="cards-grid">${cardsHTML}</div>
+          <p class="algo-note">Ranked by cosine similarity across face shape, hair type, length &amp; maintenance preferences.</p>
+          <div class="cards-grid">${cardsHTML || "<p style='color:#888'>No recommendations found.</p>"}</div>
         </section>
 
         <section class="section avoid-section">
           <h2>Least Recommended Styles</h2>
-          <ul class="avoid-list">${avoidHTML}</ul>
+          <ul class="avoid-list">${avoidHTML || "<li>None identified.</li>"}</ul>
         </section>
       `;
-    }
-
-    function matchClass(score) {
-      if (score >= 85) return "match-high";
-      if (score >= 70) return "match-mid";
-      return "match-low";
     }
   </script>
 </body>

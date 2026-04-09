@@ -268,11 +268,17 @@ def get_recommendations(face_shape: str, gender: str,
     recommended = []
     for name, score in ranked[:top_n]:
         entry = HAIRSTYLES[name]
+        
+        # Build image URL 
+        folder_name = "men" if entry["gender"] == "male" else "female"
+        image_url = f"assets/hairstyle/{folder_name}/{name}.jpg"
+
         recommended.append({
             "name":        name,
             "description": entry["description"],
             "tip":         entry["tip"],
-            "match_score": score
+            "match_score": score,
+            "image_url":   image_url
         })
 
     # Build avoid list — bottom 3 scoring hairstyles

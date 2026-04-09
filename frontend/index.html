@@ -5,12 +5,88 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hairstyle Recommender</title>
   <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* ── Detection Banner ─────────────────────────── */
+    #detectionBanner {
+      display: none;
+      width: 100%;
+      background: linear-gradient(135deg, #f0efff, #fff);
+      border: 1.5px solid #c4bffe;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+    .detect-banner-title {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.8rem; font-weight: 700; color: #6c63ff;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 0.75rem;
+    }
+    .detect-banner-title .ai-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #6c63ff; animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+    .detect-chips { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .detect-chip {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: #fff; border: 2px solid #6c63ff;
+      border-radius: 50px; padding: 0.35rem 1rem;
+      font-size: 0.875rem; font-weight: 600; color: #6c63ff;
+    }
+    .detect-chip .chip-icon { font-size: 1.1rem; }
+    .detect-chip small { font-size: 0.7rem; color: #aaa; font-weight: 500; }
+
+    .detect-hint {
+      margin-top: 0.65rem; font-size: 0.78rem; color: #999; font-style: italic;
+    }
+
+    /* ── Scanning Overlay ────────────────────────── */
+    #scanOverlay {
+      display: none;
+      width: 100%;
+      flex-direction: column; align-items: center; gap: 0.6rem;
+      padding: 0.75rem; color: #6c63ff; font-size: 0.9rem; font-weight: 500;
+    }
+    .scan-bar-wrap { width: 100%; height: 6px; background: #ece9ff; border-radius: 50px; overflow:hidden; }
+    .scan-bar { height:100%; width:0%; background: linear-gradient(90deg,#6c63ff,#a78bfa); border-radius:50px; animation: scanAnim 2s ease-in-out infinite; }
+    @keyframes scanAnim { 0%{width:0%} 50%{width:80%} 100%{width:100%} }
+
+    /* ── Detected pill highlight ─────────────────── */
+    .pill.ai-detected {
+      position: relative;
+    }
+    .pill.ai-detected::after {
+      content: "🤖";
+      position: absolute;
+      top: -10px; right: -6px;
+      font-size: 0.65rem;
+      background: #6c63ff;
+      color: #fff;
+      border-radius: 50px;
+      padding: 1px 4px;
+      font-style: normal;
+    }
+    .pref-label .detected-tag {
+      font-size: 0.68rem;
+      background: #ede9ff;
+      color: #6c63ff;
+      border-radius: 50px;
+      padding: 1px 8px;
+      font-weight: 600;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+  </style>
 </head>
 <body>
 
   <header>
-    <h1>✂️ Hairstyle Recommender</h1>
-    <p>Upload a clear photo and tell us your preferences for personalised suggestions.</p>
+    <h1>Hairstyle Recommender</h1>
+    <p>Upload or snap a photo — we'll detect your hair and suggest the best styles.</p>
   </header>
 
   <main>
@@ -20,8 +96,7 @@
       <div class="preview-area" id="previewArea" onclick="document.getElementById('fileInput').click()">
         <img id="previewImg" src="" alt="Preview" style="display:none;" />
         <div class="placeholder" id="placeholder">
-          <span>📷</span>
-          <p>Click or drag & drop your photo here</p>
+          <p>Click or drag &amp; drop your photo here</p>
           <small>JPG or PNG</small>
         </div>
       </div>
@@ -32,13 +107,42 @@
       </div>
 
       <!-- Camera Area -->
-      <div id="cameraArea" style="display:none; width: 100%; max-width: 340px; margin-top: 15px; border: 1px solid #d0d0d8; border-radius: 12px; padding: 10px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
-        <video id="cameraVideo" autoplay playsinline style="width: 100%; border-radius: 8px; background: #000;"></video>
-        <div style="display: flex; gap: 10px; margin-top: 10px; justify-content: center;">
-          <button class="btn-primary" onclick="takePhoto()" style="padding: 0.5rem 1.5rem; font-size: 0.9rem;">Snap</button>
-          <button class="btn-secondary" onclick="stopCamera()" style="padding: 0.5rem 1.5rem; font-size: 0.9rem;">Cancel</button>
+      <div id="cameraArea" style="display:none; width:100%; max-width:340px; margin-top:15px; border:1px solid #d0d0d8; border-radius:12px; padding:10px; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+        <video id="cameraVideo" autoplay playsinline style="width:100%; border-radius:8px; background:#000;"></video>
+        <div style="display:flex; gap:10px; margin-top:10px; justify-content:center;">
+          <button class="btn-primary" onclick="takePhoto()" style="padding:0.5rem 1.5rem; font-size:0.9rem;">Snap Photo</button>
+          <button class="btn-secondary" onclick="stopCamera()" style="padding:0.5rem 1.5rem; font-size:0.9rem;">Cancel</button>
         </div>
         <canvas id="cameraCanvas" style="display:none;"></canvas>
+      </div>
+
+      <!-- Scanning animation (shown while detecting hair) -->
+      <div id="scanOverlay">
+        <span>Detecting your hair properties…</span>
+        <div class="scan-bar-wrap"><div class="scan-bar"></div></div>
+      </div>
+
+      <!-- AI Detection Banner (shown after detection) -->
+      <div id="detectionBanner">
+        <div class="detect-banner-title">
+          <div class="ai-dot"></div>
+          AI Detected from your photo
+        </div>
+        <div class="detect-chips">
+          <div class="detect-chip">
+            <div>
+              <small>Hair Length</small><br/>
+              <strong id="chipLengthVal">—</strong>
+            </div>
+          </div>
+          <div class="detect-chip">
+            <div>
+              <small>Hair Type</small><br/>
+              <strong id="chipTypeVal">—</strong>
+            </div>
+          </div>
+        </div>
+        <p class="detect-hint">These are pre-selected below. You can override them before getting recommendations.</p>
       </div>
 
       <!-- Preferences -->
@@ -48,25 +152,25 @@
         <div class="pref-group">
           <label class="pref-label">Gender</label>
           <div class="pill-group" id="gender-group">
-            <button class="pill" data-group="gender" data-value="male" onclick="selectPill(this)">♂ Male</button>
-            <button class="pill" data-group="gender" data-value="female" onclick="selectPill(this)">♀ Female</button>
+            <button class="pill" data-group="gender" data-value="male" onclick="selectPill(this)">Male</button>
+            <button class="pill" data-group="gender" data-value="female" onclick="selectPill(this)">Female</button>
           </div>
         </div>
 
         <!-- Hair type -->
         <div class="pref-group">
-          <label class="pref-label">Hair Type</label>
+          <label class="pref-label" id="label-hair_type">Hair Type</label>
           <div class="pill-group">
-            <button class="pill active" data-group="hair_type" data-value="any"      onclick="selectPill(this)">Any</button>
-            <button class="pill"        data-group="hair_type" data-value="straight" onclick="selectPill(this)">Straight</button>
-            <button class="pill"        data-group="hair_type" data-value="wavy"     onclick="selectPill(this)">Wavy</button>
-            <button class="pill"        data-group="hair_type" data-value="curly"    onclick="selectPill(this)">Curly</button>
+            <button class="pill" data-group="hair_type" data-value="any"      onclick="selectPill(this)">Any</button>
+            <button class="pill" data-group="hair_type" data-value="straight" onclick="selectPill(this)">Straight</button>
+            <button class="pill" data-group="hair_type" data-value="wavy"     onclick="selectPill(this)">Wavy</button>
+            <button class="pill" data-group="hair_type" data-value="curly"    onclick="selectPill(this)">Curly</button>
           </div>
         </div>
 
         <!-- Length preference -->
         <div class="pref-group">
-          <label class="pref-label">Preferred Length</label>
+          <label class="pref-label" id="label-length_pref">Preferred Length</label>
           <div class="pill-group">
             <button class="pill"        data-group="length_pref" data-value="short"  onclick="selectPill(this)">Short</button>
             <button class="pill active" data-group="length_pref" data-value="medium" onclick="selectPill(this)">Medium</button>
@@ -86,7 +190,7 @@
 
       </div>
 
-      <button class="btn-primary" id="analyzeBtn" onclick="analyzeImage()" disabled>
+      <button class="btn-primary" id="analyzeBtn" onclick="submitForRecommendations()" disabled>
         Get My Recommendations
       </button>
 
@@ -100,25 +204,31 @@
   </main>
 
   <script>
-    const fileInput  = document.getElementById("fileInput");
-    const previewImg = document.getElementById("previewImg");
-    const placeholder= document.getElementById("placeholder");
-    const analyzeBtn = document.getElementById("analyzeBtn");
-    const loading    = document.getElementById("loading");
-    const errorDiv   = document.getElementById("error");
+    const fileInput      = document.getElementById("fileInput");
+    const previewImg     = document.getElementById("previewImg");
+    const placeholder    = document.getElementById("placeholder");
+    const analyzeBtn     = document.getElementById("analyzeBtn");
+    const loading        = document.getElementById("loading");
+    const errorDiv       = document.getElementById("error");
+    const scanOverlay    = document.getElementById("scanOverlay");
+    const detectionBanner= document.getElementById("detectionBanner");
 
     let imageSelected  = false;
     let genderSelected = false;
 
-    // Pill selection logic
+    // ── Pill selection ──────────────────────────────────────────────────
     function selectPill(btn) {
       const group = btn.dataset.group;
-      document.querySelectorAll(`[data-group="${group}"]`).forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(`[data-group="${group}"]`).forEach(b => {
+        b.classList.remove("active");
+        b.classList.remove("ai-detected"); // remove any AI badge when user picks manually
+      });
       btn.classList.add("active");
-      if (group === "gender") {
-        genderSelected = true;
-        checkReady();
-      }
+      // Clear "AI detected" label from header
+      const lbl = document.getElementById(`label-${group}`);
+      if (lbl) lbl.querySelector(".detected-tag")?.remove();
+
+      if (group === "gender") { genderSelected = true; checkReady(); }
     }
 
     function getSelected(group) {
@@ -130,81 +240,131 @@
       analyzeBtn.disabled = !(imageSelected && genderSelected);
     }
 
-    // Image selection
-    fileInput.addEventListener("change", () => {
-      const file = fileInput.files[0];
-      if (!file) return;
+    // ── Pre-select a pill from AI detection ────────────────────────────
+    function autoSelectPill(group, value) {
+      document.querySelectorAll(`[data-group="${group}"]`).forEach(b => {
+        b.classList.remove("active", "ai-detected");
+      });
+      const target = document.querySelector(`[data-group="${group}"][data-value="${value}"]`);
+      if (target) {
+        target.classList.add("active", "ai-detected");
+        // Add a tag to the label
+        const lbl = document.getElementById(`label-${group}`);
+        if (lbl) {
+          lbl.querySelector(".detected-tag")?.remove();
+          const tag = document.createElement("span");
+          tag.className = "detected-tag";
+          tag.textContent = "🤖 detected";
+          lbl.appendChild(tag);
+        }
+      }
+    }
+
+    // ── Show detection results in the banner ───────────────────────────
+    function showDetectionBanner(length, hair_type) {
+      const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+      document.getElementById("chipLengthVal").textContent  = cap(length);
+      document.getElementById("chipTypeVal").textContent    = cap(hair_type);
+
+      detectionBanner.style.display = "block";
+    }
+
+    // ── After image is chosen — auto-detect hair ───────────────────────
+    async function onImageReady(file) {
       previewImg.src = URL.createObjectURL(file);
       previewImg.style.display = "block";
       placeholder.style.display = "none";
       imageSelected = true;
       errorDiv.style.display = "none";
+      detectionBanner.style.display = "none";
       checkReady();
+
+      // Show scanning bar
+      scanOverlay.style.display = "flex";
+      analyzeBtn.disabled = true;
+
+      try {
+        const fd = new FormData();
+        fd.append("image", file);
+        const res  = await fetch("/analyze-hair", { method: "POST", body: fd });
+        const data = await res.json();
+
+        if (res.ok && !data.error) {
+          showDetectionBanner(data.length, data.hair_type);
+        }
+      } catch (_) {
+        // silently fail — user can still pick manually
+      } finally {
+        scanOverlay.style.display = "none";
+        checkReady();
+      }
+    }
+
+    // ── File input ─────────────────────────────────────────────────────
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (file) onImageReady(file);
     });
 
-    // Drag and drop
+    // ── Drag and drop ──────────────────────────────────────────────────
     const previewArea = document.getElementById("previewArea");
-    previewArea.addEventListener("dragover", e => { e.preventDefault(); previewArea.classList.add("drag-over"); });
+    previewArea.addEventListener("dragover",  e => { e.preventDefault(); previewArea.classList.add("drag-over"); });
     previewArea.addEventListener("dragleave", () => previewArea.classList.remove("drag-over"));
     previewArea.addEventListener("drop", e => {
       e.preventDefault();
       previewArea.classList.remove("drag-over");
       const file = e.dataTransfer.files[0];
       if (file && (file.type === "image/jpeg" || file.type === "image/png")) {
-        fileInput.files = e.dataTransfer.files;
-        fileInput.dispatchEvent(new Event("change"));
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        onImageReady(file);
       }
     });
 
-    // Camera Logic
-    const cameraArea = document.getElementById("cameraArea");
-    const cameraVideo = document.getElementById("cameraVideo");
+    // ── Camera ─────────────────────────────────────────────────────────
+    const cameraArea   = document.getElementById("cameraArea");
+    const cameraVideo  = document.getElementById("cameraVideo");
     const cameraCanvas = document.getElementById("cameraCanvas");
-    let cameraStream = null;
+    let cameraStream   = null;
 
     async function startCamera() {
       try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
         cameraVideo.srcObject = cameraStream;
         cameraArea.style.display = "block";
-        analyzeBtn.disabled = true; // wait for snap or cancel
+        analyzeBtn.disabled = true;
       } catch (err) {
         alert("Unable to access camera: " + err.message);
       }
     }
 
     function stopCamera() {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-        cameraStream = null;
-      }
+      if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
       cameraArea.style.display = "none";
       checkReady();
     }
 
     function takePhoto() {
       if (!cameraStream) return;
-      
-      const width = cameraVideo.videoWidth || 640;
-      const height = cameraVideo.videoHeight || 480;
-      cameraCanvas.width = width;
-      cameraCanvas.height = height;
-      
-      const context = cameraCanvas.getContext("2d");
-      context.drawImage(cameraVideo, 0, 0, width, height);
-      
+      const w = cameraVideo.videoWidth || 640;
+      const h = cameraVideo.videoHeight || 480;
+      cameraCanvas.width = w; cameraCanvas.height = h;
+      cameraCanvas.getContext("2d").drawImage(cameraVideo, 0, 0, w, h);
       cameraCanvas.toBlob(blob => {
         const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
         const dt = new DataTransfer();
         dt.items.add(file);
         fileInput.files = dt.files;
-        fileInput.dispatchEvent(new Event("change"));
         stopCamera();
+        onImageReady(file);
       }, "image/jpeg", 0.9);
     }
 
-    async function analyzeImage() {
-      const file = fileInput.files[0];
+    // ── Final submission ───────────────────────────────────────────────
+    async function submitForRecommendations() {
+      const file        = fileInput.files[0];
       const gender      = getSelected("gender");
       const hair_type   = getSelected("hair_type")   || "any";
       const length_pref = getSelected("length_pref") || "medium";
