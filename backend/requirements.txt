@@ -9,3 +9,5 @@ seaborn==0.13.2
 tqdm==4.67.1
 opencv-python==4.10.0.84
 mediapipe>=0.10.0
+PyJWT==2.8.0
+Flask-SQLAlchemy==3.1.1
