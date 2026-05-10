@@ -55,7 +55,8 @@ SIDEWAYS     = 12  # 0=flat 1=rounded
 # ─── Feature Weights ───────────────────────────────────────────────
 # We heavily weight the gender dimensions (indices 5 and 6) so the single
 # cosine similarity algorithm naturally filters out opposite-gender styles.
-FEATURE_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0, 15.0, 15.0, 1.0, 1.0, 1.0, 0.8, 0.8, 0.8]
+# Face shapes (indices 0-4) are also heavily weighted to prioritize the CNN classification.
+FEATURE_WEIGHTS = [5.0, 5.0, 5.0, 5.0, 5.0, 15.0, 15.0, 1.0, 1.0, 1.0, 0.8, 0.8, 0.8]
 
 # ─── Hairstyle database ────────────────────────────────────────────
 # Format: [oval, round, square, heart, oblong, male, female, length, maintenance, hair_type]

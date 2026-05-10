@@ -18,6 +18,8 @@ keeping this file clean and inference-safe.
 import os, sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+os.environ["KERAS_BACKEND"] = "torch"
+
 import keras
 from keras import layers, regularizers
 import tensorflow as tf
