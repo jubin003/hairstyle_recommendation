@@ -16,6 +16,9 @@
     </div>
   </nav>
 
+  <!-- Floating Dark/Light Mode Toggle -->
+  <button id="themeToggle" title="Toggle dark / light mode" aria-label="Toggle dark/light mode">☀️</button>
+
   <main id="resultsContainer"></main>
 
   <div style="text-align:center; margin:2rem 0;">
@@ -23,6 +26,31 @@
   </div>
 
   <script>
+    // ── Theme toggle (apply saved preference immediately) ─────────────────────
+    (function () {
+      const saved = localStorage.getItem("theme");
+      if (saved) document.documentElement.setAttribute("data-theme", saved);
+    })();
+
+    const themeBtn = document.getElementById("themeToggle");
+    function applyTheme(t) {
+      document.documentElement.setAttribute("data-theme", t);
+      localStorage.setItem("theme", t);
+      themeBtn.textContent = t === "dark" ? "🌙" : "☀️";
+      themeBtn.title = t === "dark" ? "Switch to light mode" : "Switch to dark mode";
+    }
+    (function () {
+      const cur = document.documentElement.getAttribute("data-theme")
+        || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      themeBtn.textContent = cur === "dark" ? "🌙" : "☀️";
+      themeBtn.title = cur === "dark" ? "Switch to light mode" : "Switch to dark mode";
+    })();
+    themeBtn.addEventListener("click", () => {
+      const cur = document.documentElement.getAttribute("data-theme")
+        || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      applyTheme(cur === "dark" ? "light" : "dark");
+    });
+
     /* ── helpers ─────────────────────────────────────────── */
     function cap(s) {
       if (!s || typeof s !== "string") return "";
@@ -136,7 +164,8 @@
       const recommended = Array.isArray(rec.recommended) ? rec.recommended : [];
       const cardsHTML = recommended.map(h => `
         <div class="hair-card">
-          <img src="${h.image_url || ''}" alt="${h.name}" class="hair-image" />
+          <img src="${h.image_url || ''}" alt="${h.name}" class="hair-image"
+               onerror="this.style.display='none'" />
           <div class="card-content">
             <div class="card-top">
               <div class="match-ring ${matchClass(h.match_score)}">
@@ -156,7 +185,8 @@
       const avoid     = Array.isArray(rec.avoid) ? rec.avoid : [];
       const avoidHTML = avoid.map(h => `
         <div class="hair-card" style="opacity: 0.85; filter: grayscale(40%);">
-          <img src="${h.image_url || ''}" alt="${h.name}" class="hair-image" />
+          <img src="${h.image_url || ''}" alt="${h.name}" class="hair-image"
+               onerror="this.style.display='none'" />
           <div class="card-content">
             <div class="card-top">
               <div class="match-ring match-low">

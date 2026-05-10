@@ -81,6 +81,9 @@
     </div>
   </nav>
 
+  <!-- Floating Dark/Light Mode Toggle -->
+  <button id="themeToggle" title="Toggle dark / light mode" aria-label="Toggle dark/light mode">☀️</button>
+
   <section class="hero-section" id="home">
     <h1>Find Your Perfect Hairstyle</h1>
     <p>Upload a photo and let our AI suggest the best styles for your face shape.</p>
@@ -202,11 +205,66 @@
 
   <section class="about-section" id="about">
     <h2>About HairRecommender</h2>
-    <p>This tool uses advanced computer vision and a custom Convolutional Neural Network (CNN) to detect your face shape, hair length, and hair type. Based on your unique features, it recommends the most flattering hairstyles.</p>
-    <p><strong>Privacy First:</strong> We do not store your photos. All image processing is done temporarily and deleted immediately after the analysis.</p>
+    <p class="about-subtitle">A smart, privacy-first AI tool that analyses your face shape and personal preferences to recommend the most flattering hairstyles &mdash; built entirely from scratch with a custom CNN and cosine-similarity engine.</p>
+
+    <!-- Feature Cards -->
+    <div class="about-features">
+      <div class="about-feature-card">
+        <span class="feat-icon">🧠</span>
+        <span class="feat-title">Custom CNN Model</span>
+        <span class="feat-desc">A convolutional neural network trained from scratch classifies your face shape into oval, round, square, heart, or oblong with high confidence.</span>
+      </div>
+      <div class="about-feature-card">
+        <span class="feat-icon">📊</span>
+        <span class="feat-title">Cosine Similarity Matching</span>
+        <span class="feat-desc">Each hairstyle is encoded as a feature vector. Weighted cosine similarity ranks every style against your unique face &amp; preference vector.</span>
+      </div>
+      <div class="about-feature-card">
+        <span class="feat-icon">👀</span>
+        <span class="feat-title">Computer Vision Hair Analysis</span>
+        <span class="feat-desc">MediaPipe landmarks combined with image segmentation automatically detect your current hair length and type directly from the photo.</span>
+      </div>
+      <div class="about-feature-card">
+        <span class="feat-icon">♀️♂️</span>
+        <span class="feat-title">Gender-Aware Recommendations</span>
+        <span class="feat-desc">Recommendations and &ldquo;styles to avoid&rdquo; are always filtered to match your selected gender &mdash; no cross-gender results, ever.</span>
+      </div>
+    </div>
+
+    <!-- Privacy note -->
+    <div class="about-privacy">
+      <span class="priv-icon">🔒</span>
+      <span><strong>Privacy First:</strong> We never store your photos. All image processing happens entirely on the server during your request and is permanently deleted the moment your results are returned. No account required.</span>
+    </div>
   </section>
 
   <script>
+    // ── Theme toggle ────────────────────────────────────────────────────
+    (function () {
+      const saved = localStorage.getItem("theme");
+      if (saved) document.documentElement.setAttribute("data-theme", saved);
+    })();
+
+    const themeBtn = document.getElementById("themeToggle");
+    function applyTheme(t) {
+      document.documentElement.setAttribute("data-theme", t);
+      localStorage.setItem("theme", t);
+      themeBtn.textContent = t === "dark" ? "🌙" : "☀️";
+      themeBtn.title = t === "dark" ? "Switch to light mode" : "Switch to dark mode";
+    }
+    // Init icon based on current theme
+    (function () {
+      const cur = document.documentElement.getAttribute("data-theme")
+        || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      themeBtn.textContent = cur === "dark" ? "🌙" : "☀️";
+      themeBtn.title = cur === "dark" ? "Switch to light mode" : "Switch to dark mode";
+    })();
+    themeBtn.addEventListener("click", () => {
+      const cur = document.documentElement.getAttribute("data-theme")
+        || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      applyTheme(cur === "dark" ? "light" : "dark");
+    });
+
     const fileInput      = document.getElementById("fileInput");
     const previewImg     = document.getElementById("previewImg");
     const placeholder    = document.getElementById("placeholder");

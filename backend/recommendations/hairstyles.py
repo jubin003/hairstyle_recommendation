@@ -130,6 +130,66 @@ HAIRSTYLES = {
         "tip":         "Let a few face-framing strands fall loose.",
         "gender":      "female"
     },
+    "French Bob": {
+        "vector":      [0.9, 0.4, 0.6, 0.8, 0.9, 0.1, 0.95, 0, 1, 2],
+        "description": "A chic, chin-length bob often paired with fringe, offering a Parisian vibe.",
+        "tip":         "Use a texturizing spray to give it a lived-in, messy look.",
+        "gender":      "female"
+    },
+    "Butterfly Haircut": {
+        "vector":      [0.9, 0.8, 0.7, 0.6, 0.5, 0.1, 0.95, 2, 2, 0],
+        "description": "Heavily layered cut with short face-framing pieces mimicking butterfly wings.",
+        "tip":         "Blow dry with a round brush away from the face for maximum volume.",
+        "gender":      "female"
+    },
+    "Wolf Cut": {
+        "vector":      [0.85, 0.7, 0.7, 0.8, 0.6, 0.1, 0.95, 1, 1, 2],
+        "description": "A mix of a shag and a mullet with choppy layers and heavy bangs.",
+        "tip":         "Scrunch with mousse while damp to enhance the natural texture.",
+        "gender":      "female"
+    },
+    "Shag Cut": {
+        "vector":      [0.9, 0.6, 0.8, 0.9, 0.7, 0.1, 0.95, 1, 1, 0],
+        "description": "Heavily textured with choppy ends and layers around the crown.",
+        "tip":         "Perfect for adding volume to fine hair.",
+        "gender":      "female"
+    },
+    "Asymmetrical Bob": {
+        "vector":      [0.85, 0.9, 0.9, 0.6, 0.5, 0.1, 0.95, 0, 1, 1],
+        "description": "Longer on one side than the other, creating sharp, dramatic angles.",
+        "tip":         "Use a flat iron to keep the edges crisp and sharp.",
+        "gender":      "female"
+    },
+    "Face-Framing Layers": {
+        "vector":      [0.95, 0.9, 0.8, 0.7, 0.6, 0.1, 0.95, 2, 1, 1],
+        "description": "Long hair with layers starting at the chin to highlight facial features.",
+        "tip":         "Ask your stylist to start the layers below your jawline.",
+        "gender":      "female"
+    },
+    "Bixie": {
+        "vector":      [0.9, 0.5, 0.7, 0.8, 0.6, 0.1, 0.9, 0, 0, 0],
+        "description": "A cross between a bob and a pixie cut, offering short length with more texture.",
+        "tip":         "Extremely low maintenance—just wash and go.",
+        "gender":      "female"
+    },
+    "Classic Blunt Cut": {
+        "vector":      [0.8, 0.5, 0.5, 0.7, 0.9, 0.1, 0.9, 1, 0, 1],
+        "description": "Straight across cut with no layers, giving the illusion of thicker hair.",
+        "tip":         "Works best for those with straight or fine hair.",
+        "gender":      "female"
+    },
+    "Curly Shag": {
+        "vector":      [0.85, 0.6, 0.8, 0.9, 0.5, 0.1, 0.95, 1, 2, 3],
+        "description": "A heavily layered cut specifically tailored for curly hair to prevent the triangle shape.",
+        "tip":         "Apply a curl cream when wet and let air dry.",
+        "gender":      "female"
+    },
+    "Mermaid Waves": {
+        "vector":      [0.9, 0.7, 0.7, 0.6, 0.8, 0.1, 0.95, 2, 2, 2],
+        "description": "Extremely long, flowing, uniform crimped waves.",
+        "tip":         "Use a deep waver tool (three-barrel waver) for perfect S-waves.",
+        "gender":      "female"
+    },
 
     # ── MALE STYLES ────────────────────────────────────────────────
     "Textured Quiff": {
@@ -202,6 +262,66 @@ HAIRSTYLES = {
         "vector":      [0.95, 0.7, 0.6, 0.7, 0.6, 0.95, 0.1, 0, 1, 0],
         "description": "Versatile stylish quiff that suits oval faces perfectly.",
         "tip":         "Works with straight or wavy hair.",
+        "gender":      "male"
+    },
+    "French Crop": {
+        "vector":      [0.9, 0.7, 0.6, 0.8, 0.9, 0.95, 0.1, 0, 0, 0],
+        "description": "Short on the sides and back with a blunt fringe in the front.",
+        "tip":         "A drop fade on the sides makes this cut look very modern.",
+        "gender":      "male"
+    },
+    "Mullet": {
+        "vector":      [0.8, 0.6, 0.8, 0.7, 0.6, 0.95, 0.1, 1, 1, 2],
+        "description": "Business in the front, party in the back—short top and sides with a long back.",
+        "tip":         "Ask for a modern mullet with a taper fade on the sides.",
+        "gender":      "male"
+    },
+    "Bro Flow": {
+        "vector":      [0.85, 0.7, 0.9, 0.6, 0.5, 0.95, 0.1, 1, 1, 2],
+        "description": "Medium length hair pushed back, creating a relaxed, swept look.",
+        "tip":         "Requires letting your hair grow out for several months.",
+        "gender":      "male"
+    },
+    "Comb Over Fade": {
+        "vector":      [0.9, 0.8, 0.7, 0.8, 0.6, 0.95, 0.1, 0, 1, 1],
+        "description": "A sharp side part combined with a skin fade on the sides.",
+        "tip":         "Use a fine-tooth comb and pomade for a sleek finish.",
+        "gender":      "male"
+    },
+    "Faux Hawk": {
+        "vector":      [0.85, 0.9, 0.6, 0.7, 0.5, 0.95, 0.1, 0, 1, 1],
+        "description": "Hair is styled upwards and towards the center, mimicking a mohawk.",
+        "tip":         "Use a strong-hold clay or wax to keep the hair spiked.",
+        "gender":      "male"
+    },
+    "Taper Fade with Curls": {
+        "vector":      [0.9, 0.8, 0.7, 0.6, 0.6, 0.95, 0.1, 0, 1, 3],
+        "description": "A clean taper on the sides with heavy natural curls left on top.",
+        "tip":         "Use a sponge brush or curl smoothie to define the top curls.",
+        "gender":      "male"
+    },
+    "Hard Part": {
+        "vector":      [0.9, 0.7, 0.8, 0.7, 0.6, 0.95, 0.1, 0, 2, 1],
+        "description": "A shaved line in the hair to artificially create a highly defined part.",
+        "tip":         "Requires frequent trips to the barber to maintain the sharp line.",
+        "gender":      "male"
+    },
+    "Quiff with Mid Fade": {
+        "vector":      [0.9, 0.8, 0.7, 0.7, 0.6, 0.95, 0.1, 0, 1, 2],
+        "description": "Voluminous top brushed upwards and backwards, balanced with a mid fade.",
+        "tip":         "Blow dry the front upward to lock in the volume before applying product.",
+        "gender":      "male"
+    },
+    "Short Dreadlocks": {
+        "vector":      [0.85, 0.7, 0.8, 0.6, 0.5, 0.95, 0.1, 0, 0, 3],
+        "description": "Short, structured locs typically styled pointing upwards or to the side.",
+        "tip":         "Keep your scalp moisturized and use a locking gel.",
+        "gender":      "male"
+    },
+    "Man Bun": {
+        "vector":      [0.9, 0.8, 0.6, 0.7, 0.5, 0.95, 0.1, 2, 0, 0],
+        "description": "Long hair pulled back and tied into a bun at the crown or base of the neck.",
+        "tip":         "Don't tie it too tight or you risk traction alopecia.",
         "gender":      "male"
     },
 }
@@ -277,9 +397,11 @@ def get_recommendations(face_shape: str, gender: str,
     # Build user vector
     user_vec = _build_user_vector(face_shape, gender, hair_type, length_pref, maintenance)
 
-    # Compute weighted cosine similarity for all hairstyles (single algorithm)
+    # Compute weighted cosine similarity for same-gender hairstyles only
     scores = {}
     for name, data in HAIRSTYLES.items():
+        if data["gender"] != gender:          # ← hard gender filter
+            continue
         h_vec = data["vector"]
         sim   = compute_weighted_cosine_similarity(user_vec, h_vec, FEATURE_WEIGHTS)
         scores[name] = round(float(sim) * 100, 1)
