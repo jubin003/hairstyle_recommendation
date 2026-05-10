@@ -70,6 +70,10 @@
       vertical-align: middle;
     }
   </style>
+
+  <!-- MediaPipe Face Mesh -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -103,17 +107,37 @@
       <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" hidden />
       <div style="display: flex; gap: 10px; justify-content: center; width: 100%;">
         <button class="btn-secondary" onclick="document.getElementById('fileInput').click()">Choose Photo</button>
-        <button class="btn-secondary" onclick="startCamera()">Take Photo</button>
+        <button class="btn-secondary" onclick="startLiveCamera()">Live 3D Camera</button>
       </div>
 
-      <!-- Camera Area -->
-      <div id="cameraArea" style="display:none; width:100%; max-width:340px; margin-top:15px; border:1px solid #d0d0d8; border-radius:12px; padding:10px; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,0.05);">
-        <video id="cameraVideo" autoplay playsinline style="width:100%; border-radius:8px; background:#000;"></video>
-        <div style="display:flex; gap:10px; margin-top:10px; justify-content:center;">
-          <button class="btn-primary" onclick="takePhoto()" style="padding:0.5rem 1.5rem; font-size:0.9rem;">Snap Photo</button>
-          <button class="btn-secondary" onclick="stopCamera()" style="padding:0.5rem 1.5rem; font-size:0.9rem;">Cancel</button>
+      <!-- Live Camera Area -->
+      <div id="liveCameraArea" style="display:none; width:100%; max-width:340px; margin-top:15px; border:1px solid #d0d0d8; border-radius:12px; padding:10px; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+        <h3 id="liveInstTitle" style="text-align:center; color:#6c63ff; margin-bottom:10px; font-size:1.1rem;">Look Straight Ahead</h3>
+        <p id="liveInstDesc" style="text-align:center; font-size:0.85rem; color:#666; margin-bottom:10px;">Align your face to capture your front profile.</p>
+        
+        <div style="position:relative;">
+          <video id="liveVideo" autoplay playsinline style="width:100%; border-radius:8px; background:#000; transform: scaleX(-1);"></video>
+          <!-- Status overlays -->
+          <div id="liveFlash" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:white; opacity:0.8; border-radius:8px;"></div>
         </div>
-        <canvas id="cameraCanvas" style="display:none;"></canvas>
+        
+        <div style="display:flex; gap:5px; margin-top:10px; justify-content:center;">
+          <div id="dot-front" style="width:12px; height:12px; border-radius:50%; background:#6c63ff;"></div>
+          <div id="dot-left" style="width:12px; height:12px; border-radius:50%; background:#ccc;"></div>
+          <div id="dot-right" style="width:12px; height:12px; border-radius:50%; background:#ccc;"></div>
+        </div>
+        
+        <div style="display:flex; gap:10px; margin-top:15px; justify-content:center;">
+          <button class="btn-secondary" onclick="stopLiveCamera()" style="padding:0.5rem 1.5rem; font-size:0.9rem;">Cancel</button>
+        </div>
+        <canvas id="liveCanvas" style="display:none;"></canvas>
+      </div>
+      
+      <!-- Captured frames preview -->
+      <div id="liveFramesPreview" style="display:none; width:100%; gap:10px; margin-top:15px; justify-content:center;">
+          <div style="text-align:center;"><img id="imgFront" style="width:80px; border-radius:8px; border:2px solid #6c63ff;"/><br><small>Front</small></div>
+          <div style="text-align:center;"><img id="imgLeft" style="width:80px; border-radius:8px; border:2px solid #ccc;"/><br><small>Left</small></div>
+          <div style="text-align:center;"><img id="imgRight" style="width:80px; border-radius:8px; border:2px solid #ccc;"/><br><small>Right</small></div>
       </div>
 
       <!-- Scanning animation (shown while detecting hair) -->
@@ -434,7 +458,219 @@
     }
 
     // ── Final submission ───────────────────────────────────────────────
+    
+    // ── Live 3D Camera Logic ──────────────────────────────────────────
+    const liveCameraArea = document.getElementById("liveCameraArea");
+    const liveVideo = document.getElementById("liveVideo");
+    const liveCanvas = document.getElementById("liveCanvas");
+    const liveInstTitle = document.getElementById("liveInstTitle");
+    const liveInstDesc = document.getElementById("liveInstDesc");
+    const liveFramesPreview = document.getElementById("liveFramesPreview");
+    
+    let liveStream = null;
+    let faceMesh = null;
+    let cameraUtil = null;
+    let captureStage = 'front'; // front -> left -> right -> done
+    let capturedFiles = { front: null, left: null, right: null };
+    
+    let isProcessingFrame = false;
+    let framesSteady = 0;
+
+    async function startLiveCamera() {
+      // Hide standard upload UI
+      placeholder.style.display = "none";
+      previewImg.style.display = "none";
+      liveFramesPreview.style.display = "none";
+      errorDiv.style.display = "none";
+      
+      captureStage = 'front';
+      capturedFiles = { front: null, left: null, right: null };
+      framesSteady = 0;
+      updateLiveUI();
+      
+      try {
+        liveStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        liveVideo.srcObject = liveStream;
+        liveCameraArea.style.display = "block";
+        analyzeBtn.disabled = true;
+        
+        // Init MediaPipe
+        if (!faceMesh) {
+            faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+            faceMesh.setOptions({
+                maxNumFaces: 1,
+                refineLandmarks: false,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            faceMesh.onResults(onFaceMeshResults);
+        }
+        
+        if (!cameraUtil) {
+            cameraUtil = new Camera(liveVideo, {
+                onFrame: async () => {
+                    if(!isProcessingFrame && captureStage !== 'done') {
+                        isProcessingFrame = true;
+                        await faceMesh.send({image: liveVideo});
+                        isProcessingFrame = false;
+                    }
+                },
+                width: 640, height: 480
+            });
+            cameraUtil.start();
+        }
+        
+      } catch (err) {
+        alert("Unable to access camera: " + err.message);
+      }
+    }
+
+    function stopLiveCamera() {
+      if (liveStream) { liveStream.getTracks().forEach(t => t.stop()); liveStream = null; }
+      if (cameraUtil) { cameraUtil.stop(); }
+      liveCameraArea.style.display = "none";
+      checkReady();
+    }
+    
+    function flashScreen() {
+        const flash = document.getElementById('liveFlash');
+        flash.style.display = 'block';
+        setTimeout(() => flash.style.display = 'none', 150);
+    }
+    
+    function updateLiveUI() {
+        document.getElementById('dot-front').style.background = captureStage === 'front' ? '#6c63ff' : '#ccc';
+        document.getElementById('dot-left').style.background = captureStage === 'left' ? '#6c63ff' : '#ccc';
+        document.getElementById('dot-right').style.background = captureStage === 'right' ? '#6c63ff' : '#ccc';
+        
+        if (captureStage === 'front') {
+            liveInstTitle.textContent = "Look Straight";
+            liveInstDesc.textContent = "Hold still to capture your frontal shape.";
+        } else if (captureStage === 'left') {
+            liveInstTitle.textContent = "Turn Head Left";
+            liveInstDesc.textContent = "Slowly turn your head to your left.";
+        } else if (captureStage === 'right') {
+            liveInstTitle.textContent = "Turn Head Right";
+            liveInstDesc.textContent = "Slowly turn your head to your right.";
+        }
+    }
+
+    function captureLiveFrame(stageName) {
+        flashScreen();
+        const w = liveVideo.videoWidth || 640;
+        const h = liveVideo.videoHeight || 480;
+        liveCanvas.width = w; liveCanvas.height = h;
+        const ctx = liveCanvas.getContext("2d");
+        
+        // Mirror the canvas because the video is mirrored via CSS
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(liveVideo, 0, 0, w, h);
+        
+        liveCanvas.toBlob(blob => {
+            const file = new File([blob], `${stageName}.jpg`, { type: "image/jpeg" });
+            capturedFiles[stageName] = file;
+            document.getElementById(`img${stageName.charAt(0).toUpperCase() + stageName.slice(1)}`).src = URL.createObjectURL(file);
+            
+            if (stageName === 'front') {
+                captureStage = 'left';
+            } else if (stageName === 'left') {
+                captureStage = 'right';
+            } else if (stageName === 'right') {
+                captureStage = 'done';
+                stopLiveCamera();
+                liveFramesPreview.style.display = "flex";
+                imageSelected = true;
+                
+                // Set file input to the front image just so standard checks pass
+                const dt = new DataTransfer();
+                dt.items.add(capturedFiles.front);
+                fileInput.files = dt.files;
+                
+                // Trigger hair analysis using the front image
+                onImageReady(capturedFiles.front);
+            }
+            updateLiveUI();
+            framesSteady = 0;
+        }, "image/jpeg", 0.9);
+    }
+
+    function onFaceMeshResults(results) {
+        if (captureStage === 'done' || !results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
+        
+        const lm = results.multiFaceLandmarks[0];
+        const leftCheek = lm[234];
+        const rightCheek = lm[454];
+        const nose = lm[1];
+        
+        const width = rightCheek.x - leftCheek.x;
+        // Yaw estimate (0 to 1). Video is mirrored, so left/right logic is reversed visually.
+        const yaw = (nose.x - leftCheek.x) / width;
+        
+        if (captureStage === 'front' && yaw > 0.40 && yaw < 0.60) {
+            framesSteady++;
+            if (framesSteady > 15) captureLiveFrame('front');
+        } 
+        else if (captureStage === 'left' && yaw > 0.70) {
+            framesSteady++;
+            if (framesSteady > 15) captureLiveFrame('left');
+        }
+        else if (captureStage === 'right' && yaw < 0.30) {
+            framesSteady++;
+            if (framesSteady > 15) captureLiveFrame('right');
+        } else {
+            framesSteady = 0; // reset if user moves
+        }
+    }
+
+    // Replace the original submitForRecommendations
     async function submitForRecommendations() {
+      const gender      = getSelected("gender");
+      const hair_type   = getSelected("hair_type")   || "any";
+      const length_pref = getSelected("length_pref") || "medium";
+      const maintenance = getSelected("maintenance") || "low";
+
+      if (!imageSelected || !gender) return;
+
+      loading.style.display  = "flex";
+      analyzeBtn.disabled    = true;
+      errorDiv.style.display = "none";
+
+      const formData = new FormData();
+      
+      // If we used Live Camera, we have 3 files
+      if (capturedFiles.front && capturedFiles.left && capturedFiles.right) {
+          formData.append("front_image", capturedFiles.front);
+          formData.append("left_image", capturedFiles.left);
+          formData.append("right_image", capturedFiles.right);
+      } else {
+          // Fallback to standard upload
+          formData.append("image", fileInput.files[0]);
+      }
+      
+      formData.append("gender",      gender);
+      formData.append("hair_type",   hair_type);
+      formData.append("length_pref", length_pref);
+      formData.append("maintenance", maintenance);
+
+      try {
+        const endpoint = (capturedFiles.front) ? "/predict-live" : "/predict";
+        
+        const res  = await fetch(endpoint, { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Something went wrong.");
+        sessionStorage.setItem("result", JSON.stringify(data));
+        window.location.href = "result.html";
+      } catch (err) {
+        errorDiv.textContent   = err.message;
+        errorDiv.style.display = "block";
+        analyzeBtn.disabled    = false;
+      } finally {
+        loading.style.display = "none";
+      }
+    }
+
+/* 
       const file        = fileInput.files[0];
       const gender      = getSelected("gender");
       const hair_type   = getSelected("hair_type")   || "any";
@@ -468,7 +704,8 @@
         loading.style.display = "none";
       }
     }
-  </script>
+  */
+</script>
 
 </body>
 </html>

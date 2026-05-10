@@ -309,3 +309,77 @@ def has_face(image_path: str) -> bool:
     except Exception as exc:
         print(f"[has_face] error: {exc}")
         return False
+
+def analyze_advanced_geometry(front_path: str, left_path: str, right_path: str) -> dict:
+    """
+    Analyzes frontal, temporal, and head-sideways shapes using 3 captured frames.
+    Returns scores 0.0 to 1.0 for each feature.
+    """
+    frontal_score = 0.5
+    temporal_score = 0.5
+    sideways_score = 0.5
+
+    # 1. Analyze front face for hairline (frontal) and temples (temporal)
+    if _MP_AVAILABLE and front_path and os.path.exists(front_path):
+        try:
+            img = cv2.imread(front_path)
+            if img is not None:
+                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                h, w = img.shape[:2]
+                options = _mp_vision.FaceLandmarkerOptions(
+                    base_options=BaseOptions(model_asset_path=_MODEL_PATH),
+                    num_faces=1
+                )
+                with _mp_vision.FaceLandmarker.create_from_options(options) as landmarker:
+                    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+                    result = landmarker.detect(mp_image)
+                    if result.face_landmarks:
+                        lm = result.face_landmarks[0]
+                        def pt(idx): return np.array([lm[idx].x * w, lm[idx].y * h])
+                        
+                        # Frontal: Forehead height relative to face length
+                        # pt(10) is top hairline, pt(9) is upper forehead
+                        forehead_height = float(np.linalg.norm(pt(10) - pt(9)))
+                        face_length = float(np.linalg.norm(pt(10) - pt(152)))
+                        if face_length > 0:
+                            ratio = forehead_height / face_length
+                            # Higher ratio means higher/receding hairline
+                            frontal_score = 0.0 if ratio > 0.12 else 1.0
+                            
+                        # Temporal: Temple width vs cheek width
+                        # pt(162) and pt(389) are temples, 234 and 454 are cheeks
+                        temple_width = float(np.linalg.norm(pt(162) - pt(389)))
+                        cheek_width = float(np.linalg.norm(pt(234) - pt(454)))
+                        if cheek_width > 0:
+                            t_ratio = temple_width / cheek_width
+                            # Lower ratio means hollow temples
+                            temporal_score = 0.0 if t_ratio < 0.82 else 1.0
+        except Exception as exc:
+            print(f"[analyze_advanced_geometry] front error: {exc}")
+
+    # 2. Analyze side profile for head-sideways shape (flat vs rounded back)
+    side_path = left_path if (left_path and os.path.exists(left_path)) else right_path
+    if side_path and os.path.exists(side_path):
+        try:
+            img = cv2.imread(side_path)
+            if img is not None:
+                h, w = img.shape[:2]
+                mask = _get_hair_mask(img)
+                # Find bounding box of the hair mask
+                cols = np.any(mask > 0, axis=0)
+                if np.any(cols):
+                    c_min, c_max = np.where(cols)[0][[0, -1]]
+                    hair_width = c_max - c_min
+                    # If the hair stretches widely from the side profile, the head/hair is rounded
+                    if hair_width > w * 0.35:
+                        sideways_score = 1.0  # Rounded / voluminous back
+                    else:
+                        sideways_score = 0.0  # Flat back
+        except Exception as exc:
+            print(f"[analyze_advanced_geometry] side error: {exc}")
+
+    return {
+        "frontal_shape": frontal_score,
+        "temporal_shape": temporal_score,
+        "head_sideways": sideways_score
+    }

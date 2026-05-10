@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify, send_from_directory, make_response
 from flask_cors import CORS
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from model.predict import predict_face_shape
+from model.predict import predict_face_shape, predict_live
 from recommendations.hairstyles import get_recommendations
 
 app = Flask(__name__, static_folder="../frontend")
@@ -125,6 +125,78 @@ def predict():
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+@app.route("/predict-live", methods=["POST"])
+def predict_live_route():
+    if "front_image" not in request.files:
+        return jsonify({"error": "Missing front_image."}), 400
+    
+    front_file = request.files["front_image"]
+    left_file = request.files.get("left_image")
+    right_file = request.files.get("right_image")
+    
+    gender = request.form.get("gender", "").lower().strip()
+    hair_type = request.form.get("hair_type", "any").lower().strip()
+    length_pref = request.form.get("length_pref", "medium").lower().strip()
+    maintenance = request.form.get("maintenance", "low").lower().strip()
+    
+    # Save files
+    temp_files = []
+    def save_temp(file_obj):
+        if not file_obj or file_obj.filename == "": return None
+        ext = file_obj.filename.rsplit(".", 1)[-1].lower() if "." in file_obj.filename else "jpg"
+        path = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4().hex}.{ext}")
+        file_obj.save(path)
+        temp_files.append(path)
+        return path
+
+    front_path = save_temp(front_file)
+    left_path = save_temp(left_file)
+    right_path = save_temp(right_file)
+    
+    try:
+        from model.mediapipe_analysis import has_face
+        if not has_face(front_path):
+            return jsonify({"error": "No face detected in front photo."}), 400
+            
+        prediction = predict_live(front_path, left_path, right_path)
+        face_shape = prediction["face_shape"]
+        auto_length = prediction.get("auto_hair_length", "medium")
+        auto_type = prediction.get("auto_hair_type", "any")
+        
+        # Advanced Geometry fallback to 0.5 if missing
+        adv = prediction.get("advanced_geometry", {})
+        frontal_shape = adv.get("frontal_shape", 0.5)
+        temporal_shape = adv.get("temporal_shape", 0.5)
+        sideways_shape = adv.get("head_sideways", 0.5)
+        
+        recommendations = get_recommendations(
+            face_shape=face_shape,
+            gender=gender,
+            hair_type=hair_type,
+            length_pref=length_pref,
+            maintenance=maintenance,
+            frontal=frontal_shape,
+            temporal=temporal_shape,
+            sideways=sideways_shape
+        )
+
+        return jsonify({
+            "face_shape": face_shape,
+            "confidence": prediction["confidence"],
+            "all_scores": prediction["all_scores"],
+            "advanced_geometry": adv,
+            "detected_hair": {"length": auto_length, "type": auto_type},
+            "gender": gender,
+            "preferences": {"hair_type": hair_type, "length_pref": length_pref, "maintenance": maintenance},
+            "recommendations": recommendations
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        for p in temp_files:
+            if os.path.exists(p): os.remove(p)
 
 
 if __name__ == "__main__":

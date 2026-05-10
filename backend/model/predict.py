@@ -7,7 +7,7 @@ from PIL import Image
 import keras
 
 from config import MODEL_PATH, CLASS_NAMES_PATH, IMAGE_SIZE
-from model.mediapipe_analysis import analyze_face_geometry, analyze_hair
+from model.mediapipe_analysis import analyze_face_geometry, analyze_hair, analyze_advanced_geometry
 
 _model = None
 _class_names = None
@@ -73,6 +73,20 @@ def predict_face_shape(image_path: str) -> dict:
         "auto_hair_length": hair_features.get("length", "medium"),
         "auto_hair_type": hair_features.get("hair_type", "any")
     }
+
+def predict_live(front_path: str, left_path: str, right_path: str) -> dict:
+    """
+    Enhanced prediction for live camera multi-angle capture.
+    """
+    # Base prediction using the front image
+    base_pred = predict_face_shape(front_path)
+    
+    # Advanced 3D geometry from multi-angle
+    adv_geo = analyze_advanced_geometry(front_path, left_path, right_path)
+    
+    # Merge results
+    base_pred["advanced_geometry"] = adv_geo
+    return base_pred
 
 
 if __name__ == "__main__":
