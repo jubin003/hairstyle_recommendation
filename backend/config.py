@@ -21,5 +21,5 @@ CLASSES       = ["heart", "oblong", "oval", "round", "square"]
 NUM_CLASSES   = len(CLASSES)
 
 BATCH_SIZE    = 32
-NUM_EPOCHS    = 50          # total budget across both phases
-LEARNING_RATE = 1e-3        # Phase 1 head LR (fine-tune uses 1e-4 automatically)
+NUM_EPOCHS    = 60          # extended budget for cosine decay to work fully
+LEARNING_RATE = 5e-4        # safer initial LR paired with cosine decay schedule

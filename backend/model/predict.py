@@ -42,7 +42,7 @@ def predict_face_shape(image_path: str) -> dict:
         # Use Softmax temperature scaling to dramatically sharpen the top prediction
         # (reduces "noise" from runner-up classes so confidence looks higher)
         import math
-        temperature = 0.08  # Lower = sharper, higher peak
+        temperature = 0.3   # Honest sharpening: top class still dominates but runner-ups are visible
         exp_scores = {}
         for cls in cnn_confidences:
             # Average the CNN and Geo score (out of 1.0)
