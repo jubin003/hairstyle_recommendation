@@ -281,3 +281,31 @@ def analyze_hair(image_path: str) -> dict:
                 hair_type_result = "straight"
 
     return {"length": length_result, "hair_type": hair_type_result}
+
+def has_face(image_path: str) -> bool:
+    """
+    Returns True if at least one face is detected, False otherwise.
+    If mediapipe is unavailable, it returns True to avoid blocking functionality.
+    """
+    if not _MP_AVAILABLE:
+        return True
+
+    img = cv2.imread(image_path)
+    if img is None:
+        return False
+
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    try:
+        options = _mp_vision.FaceLandmarkerOptions(
+            base_options=BaseOptions(model_asset_path=_MODEL_PATH),
+            output_face_blendshapes=False,
+            output_facial_transformation_matrixes=False,
+            num_faces=1,
+        )
+        with _mp_vision.FaceLandmarker.create_from_options(options) as landmarker:
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+            result = landmarker.detect(mp_image)
+            return len(result.face_landmarks) > 0
+    except Exception as exc:
+        print(f"[has_face] error: {exc}")
+        return False

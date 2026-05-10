@@ -11,7 +11,31 @@ Hair type:   0=any,   1=straight, 2=wavy, 3=curly
 """
 
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
+import math
+
+def compute_weighted_cosine_similarity(vec_a, vec_b, weights):
+    """
+    Computes the cosine similarity between two vectors from scratch, 
+    applying custom feature weights to penalize mismatches in critical features.
+    """
+    if len(vec_a) != len(vec_b) or len(vec_a) != len(weights):
+        return 0.0
+        
+    dot_product = 0.0
+    norm_a = 0.0
+    norm_b = 0.0
+    
+    for a, b, w in zip(vec_a, vec_b, weights):
+        wa = a * w
+        wb = b * w
+        dot_product += wa * wb
+        norm_a += wa * wa
+        norm_b += wb * wb
+        
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+        
+    return dot_product / (math.sqrt(norm_a) * math.sqrt(norm_b))
 
 # ─── Feature index constants ───────────────────────────────────────
 FACE_OVAL    = 0
@@ -24,6 +48,11 @@ GENDER_FEM   = 6
 LENGTH       = 7   # 0=short 1=medium 2=long
 MAINTENANCE  = 8   # 0=low   1=medium 2=high
 HAIR_TYPE    = 9   # 0=any   1=straight 2=wavy 3=curly
+
+# ─── Feature Weights ───────────────────────────────────────────────
+# We heavily weight the gender dimensions (indices 5 and 6) so the single
+# cosine similarity algorithm naturally filters out opposite-gender styles.
+FEATURE_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0, 15.0, 15.0, 1.0, 1.0, 1.0]
 
 # ─── Hairstyle database ────────────────────────────────────────────
 # Format: [oval, round, square, heart, oblong, male, female, length, maintenance, hair_type]
@@ -248,17 +277,11 @@ def get_recommendations(face_shape: str, gender: str,
     # Build user vector
     user_vec = _build_user_vector(face_shape, gender, hair_type, length_pref, maintenance)
 
-    # Filter hairstyles by gender
-    gender_filtered = {
-        name: data for name, data in HAIRSTYLES.items()
-        if data["gender"] == gender
-    }
-
-    # Compute cosine similarity for each hairstyle
+    # Compute weighted cosine similarity for all hairstyles (single algorithm)
     scores = {}
-    for name, data in gender_filtered.items():
+    for name, data in HAIRSTYLES.items():
         h_vec = data["vector"]
-        sim   = cosine_similarity([user_vec], [h_vec])[0][0]
+        sim   = compute_weighted_cosine_similarity(user_vec, h_vec, FEATURE_WEIGHTS)
         scores[name] = round(float(sim) * 100, 1)
 
     # Sort by score descending
@@ -282,7 +305,18 @@ def get_recommendations(face_shape: str, gender: str,
         })
 
     # Build avoid list — bottom 3 scoring hairstyles
-    avoid = [name for name, _ in ranked[-3:]]
+    avoid = []
+    for name, score in ranked[-3:]:
+        entry = HAIRSTYLES[name]
+        folder_name = "men" if entry["gender"] == "male" else "female"
+        image_url = f"assets/hairstyle/{folder_name}/{name}.jpg"
+        avoid.append({
+            "name":        name,
+            "description": entry["description"],
+            "tip":         entry["tip"],
+            "match_score": score,
+            "image_url":   image_url
+        })
 
     # Face shape descriptions
     descriptions = {

@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hairstyle Recommender</title>
   <link rel="stylesheet" href="css/style.css" />
-  <link rel="stylesheet" href="css/modals.css" />
   <style>
     /* ── Detection Banner ─────────────────────────── */
     #detectionBanner {
@@ -60,17 +59,6 @@
     .pill.ai-detected {
       position: relative;
     }
-    .pill.ai-detected::after {
-      content: "🤖";
-      position: absolute;
-      top: -10px; right: -6px;
-      font-size: 0.65rem;
-      background: #6c63ff;
-      color: #fff;
-      border-radius: 50px;
-      padding: 1px 4px;
-      font-style: normal;
-    }
     .pref-label .detected-tag {
       font-size: 0.68rem;
       background: #ede9ff;
@@ -85,11 +73,18 @@
 </head>
 <body>
 
-  <header style="position: relative;">
-    <h1>Hairstyle Recommender</h1>
-    <p>Upload or snap a photo — we'll detect your hair and suggest the best styles.</p>
-    <div class="auth-header-container" style="position:absolute; top: 1.5rem; right: 1.5rem; display:flex; align-items:center;"></div>
-  </header>
+  <nav class="navbar">
+    <div class="nav-brand">HairRecommender</div>
+    <div class="nav-links">
+      <a href="/#home">Home</a>
+      <a href="/#about">About</a>
+    </div>
+  </nav>
+
+  <section class="hero-section" id="home">
+    <h1>Find Your Perfect Hairstyle</h1>
+    <p>Upload a photo and let our AI suggest the best styles for your face shape.</p>
+  </section>
 
   <main>
     <div class="upload-card">
@@ -205,6 +200,12 @@
     </div>
   </main>
 
+  <section class="about-section" id="about">
+    <h2>About HairRecommender</h2>
+    <p>This tool uses advanced computer vision and a custom Convolutional Neural Network (CNN) to detect your face shape, hair length, and hair type. Based on your unique features, it recommends the most flattering hairstyles.</p>
+    <p><strong>Privacy First:</strong> We do not store your photos. All image processing is done temporarily and deleted immediately after the analysis.</p>
+  </section>
+
   <script>
     const fileInput      = document.getElementById("fileInput");
     const previewImg     = document.getElementById("previewImg");
@@ -256,7 +257,7 @@
           lbl.querySelector(".detected-tag")?.remove();
           const tag = document.createElement("span");
           tag.className = "detected-tag";
-          tag.textContent = "🤖 detected";
+          tag.textContent = "AI detected";
           lbl.appendChild(tag);
         }
       }
@@ -294,9 +295,19 @@
 
         if (res.ok && !data.error) {
           showDetectionBanner(data.length, data.hair_type);
+        } else if (data.error) {
+          errorDiv.textContent = data.error;
+          errorDiv.style.display = "block";
+          imageSelected = false;
+          previewImg.style.display = "none";
+          placeholder.style.display = "block";
         }
-      } catch (_) {
-        // silently fail — user can still pick manually
+      } catch (err) {
+        errorDiv.textContent = `Something went wrong: ${err.message}`;
+        errorDiv.style.display = "block";
+        imageSelected = false;
+        previewImg.style.display = "none";
+        placeholder.style.display = "block";
       } finally {
         scanOverlay.style.display = "none";
         checkReady();
@@ -392,7 +403,7 @@
         sessionStorage.setItem("result", JSON.stringify(data));
         window.location.href = "result.html";
       } catch (err) {
-        errorDiv.textContent   = `⚠️ ${err.message}`;
+        errorDiv.textContent   = err.message;
         errorDiv.style.display = "block";
         analyzeBtn.disabled    = false;
       } finally {
@@ -401,30 +412,5 @@
     }
   </script>
 
-  <!-- Auth Modal -->
-  <div id="authModal" class="modal-overlay" style="display:none;">
-    <div class="modal-card">
-      <h2 id="authTitle">Login</h2>
-      <input type="text" id="authUsername" placeholder="Username" class="auth-input" />
-      <input type="password" id="authPassword" placeholder="Password" class="auth-input" />
-      <p id="authError" style="color:#e74c3c; font-size: 0.8rem; display:none;"></p>
-      <button class="btn-primary" style="width:100%; margin-top:1rem;" onclick="submitAuth()">Submit</button>
-      <p style="text-align:center; margin-top:1rem; font-size:0.85rem;">
-        <a href="#" onclick="toggleAuthMode()" id="authToggleText">Need an account? Sign up</a>
-      </p>
-      <button class="btn-secondary btn-sm" style="width:100%; margin-top:0.5rem;" onclick="closeAuthModal()">Cancel</button>
-    </div>
-  </div>
-
-  <!-- Favorites Modal -->
-  <div id="favModal" class="modal-overlay" style="display:none;">
-    <div class="modal-card" style="max-width: 500px;">
-      <h2>My Saved Styles</h2>
-      <div id="favList" class="fav-list"></div>
-      <button class="btn-secondary" style="width:100%; margin-top:1rem;" onclick="closeFavModal()">Close</button>
-    </div>
-  </div>
-
-  <script src="js/auth.js"></script>
 </body>
 </html>
