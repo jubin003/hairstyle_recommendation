@@ -13,29 +13,53 @@ Hair type:   0=any,   1=straight, 2=wavy, 3=curly
 import numpy as np
 import math
 
-def compute_weighted_cosine_similarity(vec_a, vec_b, weights):
+def compute_weighted_cosine_similarity(user_vec, item_vec, weights):
     """
-    Computes the cosine similarity between two vectors from scratch, 
-    applying custom feature weights to penalize mismatches in critical features.
+    Computes a hybrid similarity score.
+    Uses weighted cosine similarity for face shape, gender, and geometry,
+    and applies a targeted penalty for user preference mismatches (length, maintenance, hair_type).
     """
-    if len(vec_a) != len(vec_b) or len(vec_a) != len(weights):
+    if len(user_vec) != len(item_vec) or len(user_vec) != len(weights):
         return 0.0
         
     dot_product = 0.0
     norm_a = 0.0
     norm_b = 0.0
     
-    for a, b, w in zip(vec_a, vec_b, weights):
-        wa = a * w
-        wb = b * w
+    # Cosine Similarity for Face Shapes, Gender, and Geometry
+    sim_indices = [0, 1, 2, 3, 4, 5, 6, 10, 11, 12]
+    for i in sim_indices:
+        wa = user_vec[i] * weights[i]
+        wb = item_vec[i] * weights[i]
         dot_product += wa * wb
         norm_a += wa * wa
         norm_b += wb * wb
         
     if norm_a == 0.0 or norm_b == 0.0:
-        return 0.0
+        base_sim = 0.0
+    else:
+        base_sim = dot_product / (math.sqrt(norm_a) * math.sqrt(norm_b))
         
-    return dot_product / (math.sqrt(norm_a) * math.sqrt(norm_b))
+    # Hard penalties for preference mismatches
+    penalty = 0.0
+    
+    # Length (index 7): diff is 0, 1, or 2. Penalize 0.15 per unit difference.
+    # (e.g., user wants short(0), style is long(2) -> penalty 0.30)
+    len_diff = abs(user_vec[7] - item_vec[7])
+    penalty += len_diff * 0.15
+    
+    # Maintenance (index 8): diff is 0, 1, or 2. Penalize 0.10 per unit difference.
+    maint_diff = abs(user_vec[8] - item_vec[8])
+    penalty += maint_diff * 0.10
+    
+    # Hair Type (index 9):
+    # If user selected "any" (0.0), no penalty.
+    if user_vec[9] > 0:
+        if user_vec[9] != item_vec[9]:
+            penalty += 0.30 # Heavy 30% flat penalty for wrong hair type
+            
+    final_score = base_sim - penalty
+    return max(0.0, final_score)
 
 # ─── Feature index constants ───────────────────────────────────────
 FACE_OVAL    = 0
@@ -354,10 +378,10 @@ def _build_user_vector(face_shape, gender, hair_type="any",
     # Gender — 1.0 for selected gender
     vec[GENDER_IDX[gender]] = 1.0
 
-    # Preferences — normalised to 0-1
-    vec[LENGTH]      = LENGTH_MAP.get(length_pref, 1) / 2.0
-    vec[MAINTENANCE] = MAINTENANCE_MAP.get(maintenance, 0) / 2.0
-    vec[HAIR_TYPE]   = HAIR_TYPE_MAP.get(hair_type, 0) / 3.0
+    # Preferences — raw values for penalty calculation
+    vec[LENGTH]      = float(LENGTH_MAP.get(length_pref, 1))
+    vec[MAINTENANCE] = float(MAINTENANCE_MAP.get(maintenance, 0))
+    vec[HAIR_TYPE]   = float(HAIR_TYPE_MAP.get(hair_type, 0))
 
     # Advanced Geometry
     vec[FRONTAL]     = float(frontal_shape)
